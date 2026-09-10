@@ -30,6 +30,13 @@ router.get(
   (req, res, next) => reportController.getReportById(req, res, next)
 );
 
+// POST /api/reports/:id/analyze - Trigger AI SIF analysis
+router.post(
+  '/:id/analyze',
+  validateRequest({ params: reportIdParamSchema }),
+  (req, res, next) => reportController.analyzeReport(req, res, next)
+);
+
 // DELETE /api/reports/:id - Delete report by UUID
 router.delete(
   '/:id',

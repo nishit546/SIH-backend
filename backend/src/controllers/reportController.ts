@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { reportService } from '../services/reportService';
+import { analysisService } from '../services/analysisService';
 
 export class ReportController {
   /**
@@ -51,6 +52,30 @@ export class ReportController {
       res.status(200).json({
         success: true,
         data: report,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/reports/:id/analyze
+   * Trigger AI/NLP SIF precursor analysis for a specific safety report
+   */
+  async analyzeReport(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const forceReanalyze = req.query.force === 'true';
+
+      const result = await analysisService.analyzeReport(id, forceReanalyze);
+
+      res.status(result.isExisting ? 200 : 201).json({
+        success: true,
+        data: {
+          reportId: result.reportId,
+          analysis: result.analysis,
+          ...(result.isExisting ? { isExisting: true, message: 'Returned existing report analysis' } : {}),
+        },
       });
     } catch (error) {
       next(error);
