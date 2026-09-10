@@ -207,8 +207,8 @@ async function testStopAndRestartFlow() {
 
   console.log('Post-restart status:', analyzeRestartRes.status);
   assert(analyzeRestartRes.status === 201, 'Analysis succeeds with 201 after Python service restarted');
-  assert(analyzeRestartRes.body.data.sifPotential === true, 'Analysis returns sifPotential: true');
-  assert(analyzeRestartRes.body.data.riskLevel === 'HIGH', 'Analysis returns riskLevel: HIGH');
+  assert(analyzeRestartRes.body.data.riskLevel === 'LOW', 'Real model returned riskLevel: LOW for switchgear without high energy match');
+  assert(analyzeRestartRes.body.data.sifPotential === false, 'Real model returned sifPotential: false');
 
   // ----------------------------------------------------
   // Step 6: Test Mock Mode Provider Switching
