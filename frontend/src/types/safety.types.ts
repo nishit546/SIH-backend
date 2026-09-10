@@ -1,4 +1,4 @@
-export type ReportType = 'UNSAFE_ACT' | 'UNSAFE_CONDITION' | 'NEAR_MISS' | 'INCIDENT';
+export type ReportType = 'UNSAFE_ACT' | 'UNSAFE_CONDITION' | 'NEAR_MISS' | 'INCIDENT' | 'OBSERVATION';
 
 export type ProcessingStatus = 'PENDING' | 'ANALYZING' | 'ANALYZED' | 'FAILED';
 
@@ -7,6 +7,25 @@ export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type ActionPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export type ActionStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export interface SafetyReportForm {
+  reportType: ReportType;
+  description: string;
+  site: string;
+  department: string;
+  activity: string;
+  contractorType: string;
+  workPhase: string;
+  eventDate?: string;
+}
+
+export interface SafetyReportSubmissionResult {
+  id: string;
+  reportNumber: string;
+  status: ProcessingStatus;
+  createdAt: string;
+  report: SafetyReport;
+}
 
 export interface SafetyReport {
   id: string;
