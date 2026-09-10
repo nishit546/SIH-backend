@@ -3,9 +3,9 @@ import { IAIAnalysisService } from './ai/aiService.interface';
 import { getAiService } from './ai';
 import { AIAnalysisInput } from '../types/ai.types';
 import { aiAnalysisResultSchema } from '../validators/aiSchemas';
-import { AppError, NotFoundError } from '../utils/errors';
-import { ProcessingStatus, RiskLevel, SafetyAnalysis } from '@prisma/client';
+import { ProcessingStatus, RiskLevel, SafetyAnalysis, Prisma } from '@prisma/client';
 import { aiConfig } from '../config/aiConfig';
+import { AppError, NotFoundError } from '../utils/errors';
 
 export class AnalysisService {
   private aiService: IAIAnalysisService;
@@ -150,7 +150,7 @@ export class AnalysisService {
           modelVersion: validatedAnalysis.modelVersion || aiConfig.modelVersion,
           ontologyVersion: validatedAnalysis.ontologyVersion || 'v1.0.0',
           isLatest: true,
-          rawResponse: validatedAnalysis.rawResponse ? (validatedAnalysis.rawResponse as any) : undefined,
+          rawResponse: validatedAnalysis.rawResponse ? (validatedAnalysis.rawResponse as Prisma.InputJsonValue) : undefined,
         },
       });
 

@@ -1,7 +1,7 @@
 import prisma from '../config/database';
 import { CreateReportDTO, PaginatedResult } from '../types/report.types';
 import { NotFoundError } from '../utils/errors';
-import { ProcessingStatus, SafetyReport } from '@prisma/client';
+import { ProcessingStatus, SafetyReport, Prisma } from '@prisma/client';
 
 export class ReportService {
   /**
@@ -26,7 +26,7 @@ export class ReportService {
         eventDate: data.eventDate ? new Date(data.eventDate) : new Date(),
         status: ProcessingStatus.PENDING,
         reporterId: data.reporterId || null,
-        sourceMetadata: data.sourceMetadata ? (data.sourceMetadata as any) : undefined,
+        sourceMetadata: data.sourceMetadata ? (data.sourceMetadata as Prisma.InputJsonValue) : undefined,
       },
     });
 
