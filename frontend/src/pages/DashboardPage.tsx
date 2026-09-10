@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { Plus, ShieldAlert } from 'lucide-react';
 import { PageContainer } from '../components/common/PageContainer';
 import { PageHeader } from '../components/common/PageHeader';
-import { LoadingState } from '../components/common/LoadingState';
+import { ErrorState } from '../components/common/ErrorState';
+import { SkeletonCard } from '../components/common/SkeletonCard';
 import { DashboardFilters } from '../components/dashboard/DashboardFilters';
 import { DashboardKpiCards } from '../components/dashboard/DashboardKpiCards';
 import { SifDistributionChart } from '../components/dashboard/SifDistributionChart';
@@ -11,7 +12,10 @@ import { RiskDistributionChart } from '../components/dashboard/RiskDistributionC
 import { SafetyTrendChart } from '../components/dashboard/SafetyTrendChart';
 import { TopHazardsChart } from '../components/dashboard/TopHazardsChart';
 import { IogpRulesBreakdown } from '../components/dashboard/IogpRulesBreakdown';
+import { ReportsBySiteChart } from '../components/dashboard/ReportsBySiteChart';
+import { EmergingPatternsWidget } from '../components/dashboard/EmergingPatternsWidget';
 import { SafetyInsightsSection } from '../components/dashboard/SafetyInsightsSection';
+import { HighPriorityReportsSection } from '../components/dashboard/HighPriorityReportsSection';
 import { RecentReportsTable } from '../components/dashboard/RecentReportsTable';
 import { dashboardService } from '../services/dashboardService';
 import type { DashboardData, DashboardFilterState } from '../types/dashboard.types';
@@ -19,6 +23,7 @@ import type { DashboardData, DashboardFilterState } from '../types/dashboard.typ
 export const DashboardPage: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [filters, setFilters] = useState<DashboardFilterState>({
     dateRange: '30d',
     site: 'ALL',
@@ -28,11 +33,13 @@ export const DashboardPage: React.FC = () => {
 
   const loadDashboardMetrics = useCallback(async (currentFilters: DashboardFilterState) => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const response = await dashboardService.getDashboardData(currentFilters);
       setData(response);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load dashboard metrics:', err);
+      setErrorMessage(err.message || 'Unable to load HSE dashboard analytics.');
     } finally {
       setIsLoading(false);
     }
@@ -108,11 +115,58 @@ export const DashboardPage: React.FC = () => {
         isLoading={isLoading}
       />
 
-      {isLoading && !data ? (
-        <LoadingState message="Aggregating facility safety metrics & precursor distributions..." />
+      {/* Error state if query fails completely */}
+      {errorMessage && !data ? (
+        <ErrorState
+          title="Unable to load dashboard analytics"
+          message={errorMessage}
+          onRetry={handleRefresh}
+          isRetrying={isLoading}
+        />
+      ) : isLoading && !data ? (
+        /* SKELETON DASHBOARD LOADING STATE */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* 5 Top KPI Card Skeletons */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '16px'
+            }}
+          >
+            <SkeletonCard count={5} height="120px" lines={1} />
+          </div>
+
+          {/* SIF & Risk Distribution Skeletons */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
+              gap: '20px'
+            }}
+          >
+            <SkeletonCard height="240px" lines={3} />
+            <SkeletonCard height="240px" lines={3} />
+          </div>
+
+          {/* Trend Timeline Skeleton */}
+          <SkeletonCard height="280px" lines={4} />
+
+          {/* Hazards & LSR Skeletons */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
+              gap: '20px'
+            }}
+          >
+            <SkeletonCard height="260px" lines={4} />
+            <SkeletonCard height="260px" lines={4} />
+          </div>
+        </div>
       ) : data ? (
         <>
-          {/* Top 4 KPI Metrics */}
+          {/* Top 5 KPI Metrics */}
           <DashboardKpiCards summary={data.summary} />
 
           {/* SIF Potential & Risk Level Distribution (2 Columns) */}
@@ -146,8 +200,27 @@ export const DashboardPage: React.FC = () => {
             <IogpRulesBreakdown rules={data.iogpRules} />
           </div>
 
+          {/* Reports by Site & Emerging Patterns Widget (2 Columns) */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
+              gap: '20px',
+              marginBottom: '24px'
+            }}
+          >
+            <ReportsBySiteChart distribution={data.siteDistribution} />
+            <EmergingPatternsWidget
+              patterns={data.emergingPatterns}
+              totalActiveCount={data.summary.activePatternsCount || 5}
+            />
+          </div>
+
           {/* AI Safety Insights Section */}
           <SafetyInsightsSection insights={data.insights} />
+
+          {/* High Priority Safety Reports Section */}
+          <HighPriorityReportsSection reports={data.highPriorityReports} />
 
           {/* Recent Safety Reports Table */}
           <RecentReportsTable reports={data.recentReports} />

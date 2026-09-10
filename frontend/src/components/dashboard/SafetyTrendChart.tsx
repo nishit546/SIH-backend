@@ -27,7 +27,7 @@ export const SafetyTrendChart: React.FC<SafetyTrendChartProps> = ({ trends }) =>
 
   // Coordinates mapping
   const points = trends.map((d, i) => {
-    const x = padding.left + (i / (trends.length - 1)) * innerWidth;
+    const x = padding.left + (trends.length > 1 ? (i / (trends.length - 1)) * innerWidth : innerWidth / 2);
     const yTotal = padding.top + innerHeight - (d.totalReports / yMax) * innerHeight;
     const ySif = padding.top + innerHeight - (d.sifPotentialReports / yMax) * innerHeight;
     return { ...d, x, yTotal, ySif };

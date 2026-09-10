@@ -8,13 +8,15 @@ export const MOCK_DASHBOARD_DATA: DashboardData = {
     highRiskReports: 42,
     highRiskRate: 28.4,
     pendingAnalysis: 6,
+    activePatternsCount: 5,
     openCorrectiveActions: 18,
     completedCorrectiveActions: 72,
     changeFromLastPeriod: {
       totalReports: 12.5,
       sifPotential: -4.2,
       highRisk: 8.0,
-      pending: -25.0
+      pending: -25.0,
+      patterns: 25.0
     }
   },
 
@@ -51,6 +53,15 @@ export const MOCK_DASHBOARD_DATA: DashboardData = {
     { rule: 'Safe Mechanical Lifting', code: 'LSR-07', count: 11, sifCount: 3, percentage: 7.4 }
   ],
 
+  siteDistribution: [
+    { site: 'Digboi Refinery - Unit 4', totalReports: 48, sifReports: 16, highRiskReports: 18, percentage: 32.4 },
+    { site: 'Duliajan Drilling Rig #7', totalReports: 32, sifReports: 11, highRiskReports: 12, percentage: 21.6 },
+    { site: 'Moran Gathering Station', totalReports: 26, sifReports: 7, highRiskReports: 8, percentage: 17.6 },
+    { site: 'Numaligarh Terminal', totalReports: 22, sifReports: 5, highRiskReports: 6, percentage: 14.9 },
+    { site: 'Jorhat Crude Pumping Station', totalReports: 12, sifReports: 2, highRiskReports: 2, percentage: 8.1 },
+    { site: 'Offshore Platform Alpha', totalReports: 8, sifReports: 2, highRiskReports: 3, percentage: 5.4 }
+  ],
+
   trends: [
     { period: 'Week 1', date: 'Aug 04 - Aug 10', totalReports: 18, sifPotentialReports: 3, highRiskReports: 4 },
     { period: 'Week 2', date: 'Aug 11 - Aug 17', totalReports: 24, sifPotentialReports: 6, highRiskReports: 7 },
@@ -64,8 +75,8 @@ export const MOCK_DASHBOARD_DATA: DashboardData = {
     {
       id: 'ins-01',
       type: 'CRITICAL',
-      title: 'Energy Isolation is Primary SIF Driver',
-      message: 'Energy Isolation is currently the most frequently identified hazard, accounting for 47% of all detected SIF-potential events across turnaround zones.',
+      title: 'Energy Isolation is Primary Control Failure',
+      message: 'Energy Isolation is the most frequently observed control failure, accounting for 47% of all detected SIF-potential events across turnaround zones.',
       metric: '38 reports (16 SIF)',
       affectedSite: 'Digboi Refinery - Unit 4',
       suggestedAction: 'Enforce mandatory two-person LOTO verification checklist prior to mechanical line breaking.',
@@ -74,22 +85,104 @@ export const MOCK_DASHBOARD_DATA: DashboardData = {
     {
       id: 'ins-02',
       type: 'WARNING',
-      title: 'Elevated SIF Density at Duliajan Drillsite',
-      message: 'Duliajan Drilling Rig #7 has a 38% higher concentration of SIF-potential reports compared to the baseline fleet average.',
-      metric: '+38% vs fleet avg',
-      affectedSite: 'Duliajan Drilling Rig #7',
-      suggestedAction: 'Conduct focused drill crew stand-down on high-pressure mud pump bleed-off protocols.',
+      title: 'Digboi Refinery Has Highest SIF Density',
+      message: 'Digboi Refinery - Unit 4 has the highest concentration of SIF-potential reports (33.3% SIF rate vs 23% fleet average).',
+      metric: '16 SIF Events',
+      affectedSite: 'Digboi Refinery - Unit 4',
+      suggestedAction: 'Conduct specialized audit on Hydrocracker pipe-breaking and blind isolation procedures.',
       detectedAt: '2026-09-08'
     },
     {
       id: 'ins-03',
       type: 'TREND',
-      title: 'Working at Height Spikes During Maintenance Shift',
-      message: 'Working at Height reports increased by 42% during the current turnaround period, largely driven by incomplete scaffold tagging.',
-      metric: '+42% this period',
-      affectedSite: 'Moran Gathering Station',
-      suggestedAction: 'Audit third-party scaffolding contractor handover sheets before issuing permits.',
+      title: 'Hot Work Reports Increased During Selected Period',
+      message: 'Hot Work-related reports increased by 38% during the current turnaround phase, largely driven by premature arc ignition prior to gas clearance.',
+      metric: '+38% this period',
+      affectedSite: 'Digboi Tank Farm B & Unit 4',
+      suggestedAction: 'Require digital PTW gas tester sign-off timestamp before arc ignition permits are released.',
       detectedAt: '2026-09-07'
+    },
+    {
+      id: 'ins-04',
+      type: 'WARNING',
+      title: 'Line of Fire Risk Surging on Drilling Fleet',
+      message: 'Duliajan Drilling Rig #7 shows an escalating line-of-fire trend in mud piping and high-pressure rotary hoses.',
+      metric: '+65% surge',
+      affectedSite: 'Duliajan Drilling Rig #7',
+      suggestedAction: 'Inspect all Chiksan swivel safety whipchecks and cotter pins during shift handover.',
+      detectedAt: '2026-09-06'
+    }
+  ],
+
+  emergingPatterns: [
+    {
+      id: 'pat-001',
+      title: 'Repeated Energy Isolation & Zero-Energy Verification Failures',
+      riskLevel: 'CRITICAL',
+      trend: 'INCREASING',
+      reportCount: 7,
+      sifCount: 5,
+      affectedSites: ['Digboi Refinery - Unit 4', 'Moran'],
+      shortExplanation: 'Mechanics unbolting pressurized process pipe flanges before positive mechanical isolation and bleed-off checks.'
+    },
+    {
+      id: 'pat-002',
+      title: 'Line of Fire & High-Pressure Mud Line Restraint Deficiencies',
+      riskLevel: 'CRITICAL',
+      trend: 'INCREASING',
+      reportCount: 5,
+      sifCount: 4,
+      affectedSites: ['Duliajan Drilling Rig #7'],
+      shortExplanation: 'Missing secondary cotter pins on vibrating 3500+ PSI mud lines and personnel inside drop zones.'
+    },
+    {
+      id: 'pat-003',
+      title: 'Working at Height Scaffolding & Fall Arrest Control Gaps',
+      riskLevel: 'HIGH',
+      trend: 'STABLE',
+      reportCount: 6,
+      sifCount: 3,
+      affectedSites: ['Numaligarh Terminal', 'Moran'],
+      shortExplanation: 'Scaffolds with missing mid-rails, expired green inspection tags, and unclipped lanyards.'
+    }
+  ],
+
+  highPriorityReports: [
+    {
+      id: 'rep-001',
+      reportNumber: 'HSE-2026-0941',
+      eventDate: '2026-09-09 14:30',
+      site: 'Digboi Refinery - Unit 4',
+      activity: 'Hydrocracker Maintenance & Line Breaking',
+      reportType: 'NEAR_MISS',
+      riskLevel: 'CRITICAL',
+      sifPotential: true,
+      status: 'ANALYZED',
+      headline: 'Residual high-pressure hydrocarbon gas hissed through loosened studs before zero energy proof.'
+    },
+    {
+      id: 'rep-002',
+      reportNumber: 'HSE-2026-0938',
+      eventDate: '2026-09-09 11:15',
+      site: 'Duliajan Drilling Rig #7',
+      activity: 'High-Pressure Mud Line Tripping',
+      reportType: 'UNSAFE_CONDITION',
+      riskLevel: 'CRITICAL',
+      sifPotential: true,
+      status: 'ANALYZED',
+      headline: 'Chiksan swivel joint retaining pin missing cotter pin under 3500 PSI vibrating line.'
+    },
+    {
+      id: 'rep-003',
+      reportNumber: 'HSE-2026-0934',
+      eventDate: '2026-09-08 16:45',
+      site: 'Moran Gathering Station',
+      activity: 'Separator Vessel Internal Inspection',
+      reportType: 'UNSAFE_ACT',
+      riskLevel: 'CRITICAL',
+      sifPotential: true,
+      status: 'ANALYZED',
+      headline: 'Contractor entered vessel manway before LEL/O2 continuous atmospheric monitor bump test.'
     }
   ],
 
@@ -113,7 +206,7 @@ export const MOCK_DASHBOARD_DATA: DashboardData = {
       site: 'Duliajan Drilling Rig #7',
       activity: 'High-Pressure Mud Line Tripping',
       reportType: 'UNSAFE_CONDITION',
-      riskLevel: 'HIGH',
+      riskLevel: 'CRITICAL',
       sifPotential: true,
       status: 'ANALYZED',
       headline: 'Chiksan swivel joint retaining pin missing cotter pin under 3500 PSI vibrating line.'
@@ -125,7 +218,7 @@ export const MOCK_DASHBOARD_DATA: DashboardData = {
       site: 'Moran Gathering Station',
       activity: 'Separator Vessel Internal Inspection',
       reportType: 'UNSAFE_ACT',
-      riskLevel: 'HIGH',
+      riskLevel: 'CRITICAL',
       sifPotential: true,
       status: 'ANALYZED',
       headline: 'Contractor entered vessel manway before LEL/O2 continuous atmospheric monitor bump test.'
@@ -177,7 +270,8 @@ export const MOCK_FILTER_OPTIONS = {
     { value: 'Duliajan Drilling Rig #7', label: 'Duliajan Drilling Rig #7' },
     { value: 'Moran Gathering Station', label: 'Moran Gathering Station' },
     { value: 'Numaligarh Terminal', label: 'Numaligarh Terminal' },
-    { value: 'Jorhat Crude Pumping Station', label: 'Jorhat Crude Pumping Station' }
+    { value: 'Jorhat Crude Pumping Station', label: 'Jorhat Crude Pumping Station' },
+    { value: 'Offshore Platform Alpha', label: 'Offshore Platform Alpha' }
   ],
   departments: [
     { value: 'ALL', label: 'All Departments' },
