@@ -1,15 +1,16 @@
 import prisma from '../config/database';
 import { IAIAnalysisService } from './ai/aiService.interface';
-import { mockAiService } from './ai/mockAiService';
+import { getAiService } from './ai';
 import { AIAnalysisInput } from '../types/ai.types';
 import { aiAnalysisResultSchema } from '../validators/aiSchemas';
 import { AppError, NotFoundError } from '../utils/errors';
 import { ProcessingStatus, RiskLevel, SafetyAnalysis } from '@prisma/client';
+import { aiConfig } from '../config/aiConfig';
 
 export class AnalysisService {
   private aiService: IAIAnalysisService;
 
-  constructor(aiService: IAIAnalysisService = mockAiService) {
+  constructor(aiService: IAIAnalysisService = getAiService()) {
     this.aiService = aiService;
   }
 
@@ -18,6 +19,13 @@ export class AnalysisService {
    */
   public setAIService(aiService: IAIAnalysisService): void {
     this.aiService = aiService;
+  }
+
+  /**
+   * Allows selecting the AI provider dynamically ('mock' | 'real')
+   */
+  public setProvider(provider: 'mock' | 'real'): void {
+    this.aiService = getAiService(provider);
   }
 
   /**
@@ -75,16 +83,26 @@ export class AnalysisService {
 
     let rawAiResult;
     try {
-      // 5. Invoke the decoupled AI service abstraction
+      // 5. Invoke the decoupled AI service abstraction (Real or Mock)
       rawAiResult = await this.aiService.analyzeReport(aiInput);
-    } catch (aiError) {
-      // Handle AI service failure cleanly
-      console.error(`AI service error while analyzing report ${reportId}:`, aiError);
+    } catch (aiError: any) {
+      // Cleanly mark report as FAILED in database without leaving hanging ANALYZING state
       await prisma.safetyReport.update({
         where: { id: report.id },
         data: { status: ProcessingStatus.FAILED },
       });
-      throw new AppError('AI analysis service failed to process the safety report', 502, 'AI_SERVICE_ERROR');
+
+      if (aiError instanceof AppError) {
+        throw aiError;
+      }
+
+      console.error(`Unexpected AI service error while analyzing report ${reportId}:`, aiError);
+      throw new AppError(
+        'AI analysis service failed to process the safety report',
+        502,
+        'AI_SERVICE_ERROR',
+        { details: aiError.message }
+      );
     }
 
     // 6. Validate AI response with Zod before saving to PostgreSQL
@@ -123,13 +141,13 @@ export class AnalysisService {
           riskLevel: validatedAnalysis.riskLevel as RiskLevel,
           hazards: validatedAnalysis.hazards,
           exposures: validatedAnalysis.exposures,
-          criticalControls: validatedAnalysis.criticalControls,
+          criticalControls: validatedAnalysis.criticalControls || [],
           controlFailures: validatedAnalysis.controlFailures,
           barrierStatus: validatedAnalysis.barrierStatus || null,
           potentialConsequences: validatedAnalysis.potentialConsequences,
           iogpRules: validatedAnalysis.iogpRules,
           explanation: validatedAnalysis.explanation,
-          modelVersion: validatedAnalysis.modelVersion || 'mock-ai-v1.0.0',
+          modelVersion: validatedAnalysis.modelVersion || aiConfig.modelVersion,
           ontologyVersion: validatedAnalysis.ontologyVersion || 'v1.0.0',
           isLatest: true,
           rawResponse: validatedAnalysis.rawResponse ? (validatedAnalysis.rawResponse as any) : undefined,
@@ -153,4 +171,4 @@ export class AnalysisService {
   }
 }
 
-export const analysisService = new AnalysisService(mockAiService);
+export const analysisService = new AnalysisService();
