@@ -1,4 +1,4 @@
-export type ReportType = 'UNSAFE_ACT' | 'UNSAFE_CONDITION' | 'NEAR_MISS' | 'INCIDENT' | 'OBSERVATION';
+export type ReportType = 'UNSAFE_ACT' | 'UNSAFE_CONDITION' | 'NEAR_MISS' | 'INCIDENT';
 
 export type ProcessingStatus = 'PENDING' | 'ANALYZING' | 'ANALYZED' | 'FAILED';
 

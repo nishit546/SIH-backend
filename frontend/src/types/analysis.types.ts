@@ -6,10 +6,10 @@ export interface DetailedSafetyReport {
   description: string;
   reportType: ReportType;
   site: string;
-  department: string;
+  department?: string | null;
   activity: string;
-  contractorType?: string;
-  workPhase?: string;
+  contractorType?: string | null;
+  workPhase?: string | null;
   eventDate: string;
   status: ProcessingStatus;
 }
