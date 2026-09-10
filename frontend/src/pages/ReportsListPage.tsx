@@ -1,12 +1,17 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, ShieldAlert } from 'lucide-react';
+import { Plus, ShieldAlert, RefreshCw } from 'lucide-react';
 import { PageContainer } from '../components/common/PageContainer';
 import { PageHeader } from '../components/common/PageHeader';
+import { ErrorState } from '../components/common/ErrorState';
+import { EmptyState } from '../components/common/EmptyState';
+import { SkeletonTable } from '../components/common/SkeletonTable';
 import { ReportFilters } from '../components/reports/ReportFilters';
 import { ReportTable } from '../components/reports/ReportTable';
 import { ReportPagination } from '../components/reports/ReportPagination';
+import { reportService } from '../services/reportService';
 import { MOCK_REPORTS_LIST } from '../mock/mockReportsList';
+import type { SafetyReport } from '../types/safety.types';
 import type { ReportFilterState } from '../types/reportFilter.types';
 
 const INITIAL_FILTERS: ReportFilterState = {
@@ -23,8 +28,33 @@ const INITIAL_FILTERS: ReportFilterState = {
 const PAGE_SIZE = 6;
 
 export const ReportsListPage: React.FC = () => {
+  const [reports, setReports] = useState<SafetyReport[]>(MOCK_REPORTS_LIST);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [filters, setFilters] = useState<ReportFilterState>(INITIAL_FILTERS);
   const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const fetchReports = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const response = await reportService.getReports(1, 100);
+      setReports(response.data || []);
+    } catch (err: any) {
+      console.warn('Backend reports fetch failed or offline:', err);
+      setReports(MOCK_REPORTS_LIST);
+      // If we already have reports, keep them, otherwise show error
+      if (reports.length === 0) {
+        setErrorMessage(err.message || 'Unable to load safety reports.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [reports.length]);
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
 
   const handleFilterChange = (updated: Partial<ReportFilterState>) => {
     setFilters((prev) => ({ ...prev, ...updated }));
@@ -36,9 +66,19 @@ export const ReportsListPage: React.FC = () => {
     setCurrentPage(1);
   };
 
-  // Filter the mock reports based on all active criteria
+  const hasActiveFilters =
+    filters.search.trim() !== '' ||
+    filters.site !== 'ALL' ||
+    filters.department !== 'ALL' ||
+    filters.activity !== 'ALL' ||
+    filters.reportType !== 'ALL' ||
+    filters.riskLevel !== 'ALL' ||
+    filters.sifPotential !== 'ALL' ||
+    filters.status !== 'ALL';
+
+  // Filter the reports based on all active criteria
   const filteredReports = useMemo(() => {
-    return MOCK_REPORTS_LIST.filter((report) => {
+    return reports.filter((report) => {
       // 1. Search filter
       if (filters.search.trim()) {
         const query = filters.search.toLowerCase().trim();
@@ -87,7 +127,7 @@ export const ReportsListPage: React.FC = () => {
 
       return true;
     });
-  }, [filters]);
+  }, [reports, filters]);
 
   // Paginate filtered results
   const totalRecords = filteredReports.length;
@@ -121,29 +161,53 @@ export const ReportsListPage: React.FC = () => {
             }}
           >
             <ShieldAlert size={12} />
-            {MOCK_REPORTS_LIST.length} Total Registered
+            {reports.length} Total Registered
           </span>
         }
         actions={
-          <Link
-            to="/reports/new"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              backgroundColor: 'var(--color-primary)',
-              color: '#ffffff',
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '13px',
-              fontWeight: 600,
-              textDecoration: 'none',
-              transition: 'background-color 0.15s ease'
-            }}
-          >
-            <Plus size={16} />
-            Submit Safety Report
-          </Link>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={fetchReports}
+              disabled={isLoading}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-main)',
+                padding: '8px 14px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: isLoading ? 'not-allowed' : 'pointer'
+              }}
+              title="Refresh reports list"
+            >
+              <RefreshCw size={14} style={{ animation: isLoading ? 'spin 1s linear infinite' : 'none' }} />
+              Refresh
+            </button>
+            <Link
+              to="/reports/new"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: 'var(--color-primary)',
+                color: '#ffffff',
+                padding: '8px 16px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '13px',
+                fontWeight: 600,
+                textDecoration: 'none',
+                transition: 'background-color 0.15s ease'
+              }}
+            >
+              <Plus size={16} />
+              Submit Safety Report
+            </Link>
+          </div>
         }
       />
 
@@ -153,20 +217,85 @@ export const ReportsListPage: React.FC = () => {
         onChange={handleFilterChange}
         onReset={handleResetFilters}
         totalFiltered={totalRecords}
-        totalRecords={MOCK_REPORTS_LIST.length}
+        totalRecords={reports.length}
       />
 
-      {/* Reports Table */}
-      <ReportTable reports={paginatedReports} />
+      {errorMessage && reports.length === 0 ? (
+        <ErrorState
+          title="Unable to load safety reports"
+          message={errorMessage}
+          onRetry={fetchReports}
+          isRetrying={isLoading}
+        />
+      ) : isLoading && reports.length === 0 ? (
+        <SkeletonTable rows={6} columns={6} />
+      ) : reports.length === 0 ? (
+        <EmptyState
+          type="reports"
+          title="No safety reports found"
+          description="No safety observations, near misses, or precursor incidents have been registered in the database yet."
+          action={
+            <Link
+              to="/reports/new"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: 'var(--color-primary)',
+                color: '#ffffff',
+                padding: '8px 18px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '13px',
+                fontWeight: 600,
+                textDecoration: 'none'
+              }}
+            >
+              <Plus size={15} />
+              Submit First Report
+            </Link>
+          }
+        />
+      ) : filteredReports.length === 0 ? (
+        <EmptyState
+          type="search"
+          title="No reports match your filters"
+          description="No safety reports matched your active search or filter criteria. Try broadening your filter selection."
+          action={
+            hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                style={{
+                  backgroundColor: 'var(--bg-card)',
+                  color: 'var(--text-main)',
+                  border: '1px solid var(--border-color)',
+                  padding: '7px 16px',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Reset All Filters
+              </button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <>
+          {/* Reports Table */}
+          <ReportTable reports={paginatedReports} />
 
-      {/* Pagination Controls */}
-      <ReportPagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        totalRecords={totalRecords}
-        pageSize={PAGE_SIZE}
-        onPageChange={(page) => setCurrentPage(page)}
-      />
+          {/* Pagination Controls */}
+          <ReportPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalRecords={totalRecords}
+            pageSize={PAGE_SIZE}
+            onPageChange={(page) => setCurrentPage(page)}
+          />
+        </>
+      )}
     </PageContainer>
   );
 };

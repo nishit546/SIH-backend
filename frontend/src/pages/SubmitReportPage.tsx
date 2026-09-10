@@ -72,6 +72,7 @@ export const SubmitReportPage: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [submissionResult, setSubmissionResult] = useState<SafetyReportSubmissionResult | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState<boolean>(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   // Character counter helper
   const charCount = formData.description.length;
@@ -133,6 +134,7 @@ export const SubmitReportPage: React.FC = () => {
     setErrors({});
     setSubmissionResult(null);
     setAnalysisComplete(false);
+    setAnalysisError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -142,12 +144,13 @@ export const SubmitReportPage: React.FC = () => {
     }
 
     setIsSubmitting(true);
+    setErrors({});
     try {
       const result = await reportService.submitReport(formData);
       setSubmissionResult(result);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Submission failed:', err);
-      setErrors({ form: 'Failed to submit report. Please try again.' });
+      setErrors({ form: err.message || 'Failed to submit report. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -156,11 +159,13 @@ export const SubmitReportPage: React.FC = () => {
   const handleTriggerAnalysis = async () => {
     if (!submissionResult) return;
     setIsAnalyzing(true);
+    setAnalysisError(null);
     try {
       await reportService.triggerAnalysis(submissionResult.id);
       setAnalysisComplete(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Analysis failed:', err);
+      setAnalysisError(err.message || 'AI analysis failed. Please retry.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -331,32 +336,70 @@ export const SubmitReportPage: React.FC = () => {
               and precursor severity.
             </p>
 
+            {analysisError && (
+              <div
+                style={{
+                  backgroundColor: 'var(--color-danger-subtle)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: 'var(--color-danger)',
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  marginBottom: '14px',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <AlertCircle size={15} />
+                {analysisError}
+              </div>
+            )}
+
             {analysisComplete ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-safe)', fontSize: '13px', fontWeight: 600 }}>
                   <CheckCircle2 size={16} />
-                  AI Analysis Evaluated: High SIF Potential Detected
+                  AI Analysis Completed & Precursors Evaluated
                 </div>
-                <button
-                  type="button"
-                  onClick={() => navigate('/reports')}
-                  style={{
-                    backgroundColor: 'var(--color-sif)',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '6px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  View in Reports Log
-                  <ArrowRight size={13} />
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <Link
+                    to={`/reports/${submissionResult.id}/analysis`}
+                    style={{
+                      backgroundColor: 'var(--color-sif)',
+                      color: '#ffffff',
+                      textDecoration: 'none',
+                      padding: '7px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 0 10px rgba(168, 85, 247, 0.3)'
+                    }}
+                  >
+                    <Sparkles size={13} />
+                    View Analysis Intelligence
+                    <ArrowRight size={13} />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/reports')}
+                    style={{
+                      backgroundColor: 'var(--color-bg-surface)',
+                      color: 'var(--color-text-main)',
+                      border: '1px solid var(--color-border)',
+                      padding: '7px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Reports Log
+                  </button>
+                </div>
               </div>
             ) : (
               <button
@@ -381,12 +424,12 @@ export const SubmitReportPage: React.FC = () => {
                 {isAnalyzing ? (
                   <>
                     <Clock size={15} style={{ animation: 'spin 1s linear infinite' }} />
-                    Running AI Analysis...
+                    Running AI Precursor Reasoning...
                   </>
                 ) : (
                   <>
                     <Zap size={15} />
-                    Analyze Report
+                    {analysisError ? 'Retry AI Analysis' : 'Analyze Report Now'}
                   </>
                 )}
               </button>
@@ -514,7 +557,6 @@ export const SubmitReportPage: React.FC = () => {
                     <option value="UNSAFE_CONDITION">Unsafe Condition</option>
                     <option value="NEAR_MISS">Near Miss</option>
                     <option value="INCIDENT">Incident</option>
-                    <option value="OBSERVATION">Observation</option>
                   </select>
                 </div>
 

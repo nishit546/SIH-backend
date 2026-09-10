@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -24,64 +24,179 @@ import {
 import { PageContainer } from '../components/common/PageContainer';
 import { PageHeader } from '../components/common/PageHeader';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { ErrorState } from '../components/common/ErrorState';
+import { SkeletonCard } from '../components/common/SkeletonCard';
 import { SifStatus } from '../components/analysis/SifStatus';
 import { AnalysisSection } from '../components/analysis/AnalysisSection';
 import { TagList } from '../components/analysis/TagList';
 import { ReportLifecycleTimeline } from '../components/reports/ReportLifecycleTimeline';
-import { MOCK_REPORTS_LIST } from '../mock/mockReportsList';
-import type { SafetyReport, SafetyAnalysis } from '../types/safety.types';
+import { reportService } from '../services/reportService';
+import type { SafetyReport } from '../types/safety.types';
 
 export const ReportDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
 
-  // Find report by ID or fallback to the primary incident
-  const initialReport = MOCK_REPORTS_LIST.find((r) => r.id === id) || MOCK_REPORTS_LIST[0];
-  const [report, setReport] = useState<SafetyReport>(initialReport);
+  const [report, setReport] = useState<SafetyReport | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showToast, setShowToast] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
 
-  const analysis = report.latestAnalysis;
+  const loadReport = useCallback(async () => {
+    if (!id) return;
+    setIsLoading(true);
+    setErrorMessage(null);
 
-  const handleRunAnalysis = (isReanalysis = false) => {
+    try {
+      const fetched = await reportService.getReportById(id);
+      setReport(fetched);
+    } catch (err: any) {
+      console.error('Failed to load report:', err);
+      setErrorMessage(err.message || 'Unable to retrieve the requested safety report.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    loadReport();
+  }, [loadReport]);
+
+  const handleRunAnalysis = async (isReanalysis = false) => {
+    if (!report) return;
     setIsAnalyzing(true);
-    setTimeout(() => {
-      const generatedAnalysis: SafetyAnalysis = {
-        id: `an-${Date.now()}`,
-        reportId: report.id,
-        sifPotential: true,
-        probability: 0.88,
-        riskLevel: 'HIGH',
-        hazards: ['welding', 'pipeline', 'pressure', 'gas'],
-        exposures: ['worker'],
-        criticalControls: ['Double Block and Bleed', 'Atmospheric Gas Testing'],
-        controlFailures: ['before gas testing was completed'],
-        barrierStatus: null,
-        potentialConsequences: ['Catastrophic hydrocarbon fire/explosion and worker fatality'],
-        iogpRules: ['Hot Work', 'Energy Isolation', 'Work Authorization'],
-        explanation:
-          'Critical Triad detected: Hot work commenced on pressurized gas infrastructure without mandatory pre-entry atmospheric clearance. Severe barrier failure with immediate fatality risk.',
-        modelVersion: 'fastapi-sif-nlp-v1',
-        isLatest: true,
-        createdAt: new Date().toISOString()
-      };
+    setErrorMessage(null);
 
-      setReport((prev) => ({
-        ...prev,
-        status: 'ANALYZED',
-        latestAnalysis: generatedAnalysis
-      }));
+    try {
+      const result = await reportService.triggerAnalysis(report.id, isReanalysis);
+      setReport((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: 'ANALYZED',
+              latestAnalysis: result.analysis
+            }
+          : prev
+      );
 
-      setIsAnalyzing(false);
       setToastMessage(
         isReanalysis
-          ? 'Safety report re-analyzed successfully by AI engine.'
+          ? 'Safety report re-analyzed successfully by AI reasoning engine.'
           : 'Safety report analyzed and SIF Precursors evaluated.'
       );
       setShowToast(true);
       setTimeout(() => setShowToast(false), 4000);
-    }, 1200);
+    } catch (err: any) {
+      console.error('Analysis execution failed:', err);
+      setErrorMessage(err.message || 'AI analysis execution failed. Please retry.');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
+
+  if (isLoading && !report) {
+    return (
+      <PageContainer>
+        <div style={{ marginBottom: '14px' }}>
+          <Link
+            to="/reports"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '13px',
+              fontWeight: 600,
+              color: 'var(--color-primary)',
+              textDecoration: 'none'
+            }}
+          >
+            <ArrowLeft size={15} />
+            Back to Reports Log
+          </Link>
+        </div>
+
+        {/* Header Skeleton */}
+        <div style={{ marginBottom: '24px' }}>
+          <SkeletonCard height="70px" showHeader={false} lines={2} />
+        </div>
+
+        {/* Timeline Skeleton */}
+        <div style={{ marginBottom: '24px' }}>
+          <SkeletonCard height="100px" showHeader={false} lines={2} />
+        </div>
+
+        {/* Original Observation Skeleton */}
+        <div style={{ marginBottom: '24px' }}>
+          <SkeletonCard height="220px" lines={4} />
+        </div>
+
+        {/* AI Precursor Section Skeleton */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 0.8fr)',
+            gap: '24px'
+          }}
+        >
+          <SkeletonCard height="320px" lines={5} />
+          <SkeletonCard height="320px" lines={5} />
+        </div>
+      </PageContainer>
+    );
+  }
+
+  if (errorMessage && !report) {
+    return (
+      <PageContainer>
+        <div style={{ marginBottom: '14px' }}>
+          <Link
+            to="/reports"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '13px',
+              fontWeight: 600,
+              color: 'var(--color-primary)',
+              textDecoration: 'none'
+            }}
+          >
+            <ArrowLeft size={15} />
+            Back to Reports Log
+          </Link>
+        </div>
+
+        <ErrorState
+          title="Unable to load safety report"
+          message={errorMessage}
+          onRetry={loadReport}
+          isRetrying={isLoading}
+          action={
+            <Link
+              to="/reports"
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--text-main)',
+                border: '1px solid var(--border-color)',
+                padding: '8px 16px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '13px',
+                fontWeight: 600,
+                textDecoration: 'none'
+              }}
+            >
+              Back to Reports Log
+            </Link>
+          }
+        />
+      </PageContainer>
+    );
+  }
+
+  if (!report) return null;
+
+  const analysis = report.latestAnalysis;
 
   return (
     <PageContainer>
@@ -203,13 +318,24 @@ export const ReportDetailPage: React.FC = () => {
         }
       />
 
+      {errorMessage && (
+        <ErrorState
+          compact
+          title="Analysis Notice"
+          message={errorMessage}
+          type="ai"
+          onRetry={() => handleRunAnalysis(Boolean(analysis))}
+          isRetrying={isAnalyzing}
+        />
+      )}
+
       {/* SECTION 2 — PROCESSING STATUS LIFECYCLE TIMELINE */}
       <ReportLifecycleTimeline
         status={report.status}
         submittedAt={report.createdAt}
         evaluatedAt={analysis?.createdAt}
-        modelVersion={analysis?.modelVersion || 'fastapi-sif-nlp-v1'}
-        reporter="R. Sharma (Safety Officer - Field Operations)"
+        modelVersion={analysis?.modelVersion || 'sif-nlp-v2'}
+        reporter="Field Safety Officer"
       />
 
       {/* SECTION 1 — ORIGINAL REPORT CARD */}
@@ -257,7 +383,7 @@ export const ReportDetailPage: React.FC = () => {
               marginBottom: '6px'
             }}
           >
-            Raw Unmutated Field Statement
+            Raw Field Observation Statement
           </span>
           <div
             style={{
@@ -276,7 +402,7 @@ export const ReportDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Structured Metadata Grid (All Required Fields) */}
+        {/* Structured Metadata Grid */}
         <div
           style={{
             display: 'grid',
@@ -309,7 +435,7 @@ export const ReportDetailPage: React.FC = () => {
                 Department
               </span>
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-main)' }}>
-                {report.department || 'Operations'}
+                {report.department || 'Operations & Maintenance'}
               </span>
             </div>
           </div>
@@ -345,7 +471,7 @@ export const ReportDetailPage: React.FC = () => {
             <Briefcase size={15} color="var(--color-text-muted)" style={{ marginTop: '2px', flexShrink: 0 }} />
             <div>
               <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', textTransform: 'uppercase', display: 'block' }}>
-                Contractor Type
+                Contractor Classification
               </span>
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-main)' }}>
                 {report.contractorType || 'Direct EPC Contractor'}
@@ -361,7 +487,7 @@ export const ReportDetailPage: React.FC = () => {
                 Work Phase
               </span>
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-main)' }}>
-                {report.workPhase || 'Live Execution & Hot Work'}
+                {report.workPhase || 'Execution Phase'}
               </span>
             </div>
           </div>
@@ -371,10 +497,10 @@ export const ReportDetailPage: React.FC = () => {
             <User size={15} color="var(--color-text-muted)" style={{ marginTop: '2px', flexShrink: 0 }} />
             <div>
               <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', textTransform: 'uppercase', display: 'block' }}>
-                Logged By (Reporter)
+                Reporter
               </span>
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-main)' }}>
-                R. Sharma (Safety Officer)
+                Field Operations
               </span>
             </div>
           </div>
@@ -400,7 +526,7 @@ export const ReportDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* SECTION 3 — AI ANALYSIS & REASONING (REUSING ANALYSIS RESULT COMPONENTS) */}
+      {/* SECTION 3 — AI ANALYSIS & REASONING */}
       {analysis ? (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
@@ -446,7 +572,7 @@ export const ReportDetailPage: React.FC = () => {
                       borderRadius: '4px'
                     }}
                   >
-                    Model: {analysis.modelVersion || 'fastapi-sif-nlp-v1'}
+                    Model: {analysis.modelVersion || 'sif-nlp-v2'}
                   </span>
                 }
               >
@@ -483,7 +609,7 @@ export const ReportDetailPage: React.FC = () => {
                     paddingTop: '6px'
                   }}
                 >
-                  <span>Ontology: v1.0.0</span>
+                  <span>Model: {analysis.modelVersion || 'sif-nlp-v2'}</span>
                   <span>Evaluated: {new Date(analysis.createdAt).toLocaleString()}</span>
                 </div>
               </AnalysisSection>

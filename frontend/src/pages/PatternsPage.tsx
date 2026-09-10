@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Layers, Sparkles, Filter } from 'lucide-react';
 import { PageContainer } from '../components/common/PageContainer';
 import { PageHeader } from '../components/common/PageHeader';
+import { EmptyState } from '../components/common/EmptyState';
 import { PatternSummaryCards } from '../components/patterns/PatternSummaryCards';
 import { PatternCard } from '../components/patterns/PatternCard';
 import { PatternDetailModal } from '../components/patterns/PatternDetailModal';
@@ -85,9 +86,9 @@ export const PatternsPage: React.FC = () => {
               type="button"
               onClick={() => setTrendFilter(item.id)}
               style={{
-                backgroundColor: trendFilter === item.id ? 'var(--color-primary)' : 'var(--color-bg-surface)',
-                border: `1px solid ${trendFilter === item.id ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                color: trendFilter === item.id ? '#ffffff' : 'var(--color-text-muted)',
+                backgroundColor: trendFilter === item.id ? 'var(--color-primary)' : 'var(--bg-card)',
+                border: `1px solid ${trendFilter === item.id ? 'var(--color-primary)' : 'var(--border-color)'}`,
+                color: trendFilter === item.id ? '#ffffff' : 'var(--text-muted)',
                 padding: '4px 10px',
                 borderRadius: 'var(--radius-md)',
                 fontSize: '11px',
@@ -101,12 +102,38 @@ export const PatternsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Patterns Grid */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {filteredPatterns.map((pattern) => (
-          <PatternCard key={pattern.id} pattern={pattern} onSelect={(pat) => setSelectedPattern(pat)} />
-        ))}
-      </div>
+      {/* Patterns List or Empty State */}
+      {filteredPatterns.length === 0 ? (
+        <EmptyState
+          type="patterns"
+          title="No emerging patterns detected"
+          description={`No recurring failure patterns match the "${trendFilter}" trajectory filter.`}
+          action={
+            <button
+              type="button"
+              onClick={() => setTrendFilter('ALL')}
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                color: 'var(--text-main)',
+                border: '1px solid var(--border-color)',
+                padding: '7px 16px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Show All Patterns
+            </button>
+          }
+        />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {filteredPatterns.map((pattern) => (
+            <PatternCard key={pattern.id} pattern={pattern} onSelect={(pat) => setSelectedPattern(pat)} />
+          ))}
+        </div>
+      )}
 
       {/* Deep Inspection Modal */}
       <PatternDetailModal pattern={selectedPattern} onClose={() => setSelectedPattern(null)} />
