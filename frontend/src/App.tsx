@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { SubmitReportPage } from './pages/SubmitReportPage';
 import { ReportsListPage } from './pages/ReportsListPage';
 import { ReportDetailPage } from './pages/ReportDetailPage';
+import { AnalysisResultPage } from './pages/AnalysisResultPage';
 import { PatternsPage } from './pages/PatternsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -18,6 +19,7 @@ export const App: React.FC = () => {
           <Route path="reports" element={<ReportsListPage />} />
           <Route path="reports/new" element={<SubmitReportPage />} />
           <Route path="reports/:id" element={<ReportDetailPage />} />
+          <Route path="reports/:id/analysis" element={<AnalysisResultPage />} />
           <Route path="patterns" element={<PatternsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

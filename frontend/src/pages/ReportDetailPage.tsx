@@ -35,12 +35,9 @@ export const ReportDetailPage: React.FC = () => {
         badge={<StatusBadge status={report.status} />}
         actions={
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn btn-secondary" style={{ fontSize: '0.8rem' }}>
-              Export PDF
-            </button>
-            <button className="btn btn-primary" style={{ fontSize: '0.8rem' }}>
-              <BrainCircuit size={14} /> Re-Run AI Analysis
-            </button>
+            <Link to={`/reports/${report.id}/analysis`} className="btn btn-primary" style={{ fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+              <BrainCircuit size={14} /> Full AI SIF Analysis
+            </Link>
           </div>
         }
       />
