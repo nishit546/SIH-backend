@@ -1,112 +1,172 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { Plus, ShieldAlert } from 'lucide-react';
 import { PageContainer } from '../components/common/PageContainer';
 import { PageHeader } from '../components/common/PageHeader';
-import { Card } from '../components/common/Card';
-import { RiskBadge } from '../components/common/RiskBadge';
-import { StatusBadge } from '../components/common/StatusBadge';
-import { mockReports } from '../mock/mockData';
-import { Link } from 'react-router-dom';
-import { Plus, Search, Filter } from 'lucide-react';
+import { ReportFilters } from '../components/reports/ReportFilters';
+import { ReportTable } from '../components/reports/ReportTable';
+import { ReportPagination } from '../components/reports/ReportPagination';
+import { MOCK_REPORTS_LIST } from '../mock/mockReportsList';
+import type { ReportFilterState } from '../types/reportFilter.types';
+
+const INITIAL_FILTERS: ReportFilterState = {
+  search: '',
+  site: 'ALL',
+  department: 'ALL',
+  activity: 'ALL',
+  reportType: 'ALL',
+  riskLevel: 'ALL',
+  sifPotential: 'ALL',
+  status: 'ALL'
+};
+
+const PAGE_SIZE = 6;
 
 export const ReportsListPage: React.FC = () => {
+  const [filters, setFilters] = useState<ReportFilterState>(INITIAL_FILTERS);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const handleFilterChange = (updated: Partial<ReportFilterState>) => {
+    setFilters((prev) => ({ ...prev, ...updated }));
+    setCurrentPage(1); // Reset to page 1 on filter modification
+  };
+
+  const handleResetFilters = () => {
+    setFilters(INITIAL_FILTERS);
+    setCurrentPage(1);
+  };
+
+  // Filter the mock reports based on all active criteria
+  const filteredReports = useMemo(() => {
+    return MOCK_REPORTS_LIST.filter((report) => {
+      // 1. Search filter
+      if (filters.search.trim()) {
+        const query = filters.search.toLowerCase().trim();
+        const matchesSearch =
+          report.reportNumber?.toLowerCase().includes(query) ||
+          report.description.toLowerCase().includes(query) ||
+          report.site.toLowerCase().includes(query) ||
+          report.activity.toLowerCase().includes(query) ||
+          report.department?.toLowerCase().includes(query);
+
+        if (!matchesSearch) return false;
+      }
+
+      // 2. Site filter
+      if (filters.site !== 'ALL' && report.site !== filters.site) {
+        return false;
+      }
+
+      // 3. Department filter
+      if (filters.department !== 'ALL' && report.department !== filters.department) {
+        return false;
+      }
+
+      // 4. Report Type filter
+      if (filters.reportType !== 'ALL' && report.reportType !== filters.reportType) {
+        return false;
+      }
+
+      // 5. Risk Level filter
+      if (filters.riskLevel !== 'ALL') {
+        const risk = report.latestAnalysis?.riskLevel;
+        if (risk !== filters.riskLevel) return false;
+      }
+
+      // 6. SIF Potential filter
+      if (filters.sifPotential === 'SIF_ONLY') {
+        if (!report.latestAnalysis?.sifPotential) return false;
+      } else if (filters.sifPotential === 'NON_SIF') {
+        if (report.latestAnalysis?.sifPotential) return false;
+      }
+
+      // 7. Status filter
+      if (filters.status !== 'ALL' && report.status !== filters.status) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [filters]);
+
+  // Paginate filtered results
+  const totalRecords = filteredReports.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
+  const paginatedReports = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredReports.slice(start, start + PAGE_SIZE);
+  }, [filteredReports, currentPage]);
+
   return (
     <PageContainer>
+      {/* Page Header */}
       <PageHeader
         title="Safety Observations & Precursor Log"
-        description="Search, inspect, and evaluate raw field observations and AI-derived SIF precursor assessments."
+        description="Comprehensive audit register of field observations, near misses, and AI SIF precursor assessments across operational sites."
+        badge={
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              fontSize: '11px',
+              fontWeight: 700,
+              color: 'var(--color-primary)',
+              backgroundColor: 'rgba(2, 132, 199, 0.1)',
+              border: '1px solid rgba(2, 132, 199, 0.25)',
+              padding: '3px 10px',
+              borderRadius: 'var(--radius-full)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em'
+            }}
+          >
+            <ShieldAlert size={12} />
+            {MOCK_REPORTS_LIST.length} Total Registered
+          </span>
+        }
         actions={
-          <Link to="/reports/new" className="btn btn-primary">
-            <Plus size={15} />
-            Submit Report
+          <Link
+            to="/reports/new"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: 'var(--color-primary)',
+              color: '#ffffff',
+              padding: '8px 16px',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '13px',
+              fontWeight: 600,
+              textDecoration: 'none',
+              transition: 'background-color 0.15s ease'
+            }}
+          >
+            <Plus size={16} />
+            Submit Safety Report
           </Link>
         }
       />
 
-      {/* Filter Bar */}
-      <Card className="mb-4" style={{ marginBottom: '1.25rem', padding: '0.85rem 1.25rem' }}>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 220, backgroundColor: 'var(--bg-subtle)', padding: '0.45rem 0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-            <Search size={16} color="var(--text-dim)" />
-            <input
-              type="text"
-              placeholder="Search description, equipment, site..."
-              style={{ backgroundColor: 'transparent', border: 'none', color: '#fff', outline: 'none', width: '100%', fontSize: '0.85rem' }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Filter size={16} color="var(--text-dim)" />
-            <select style={{ backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', color: '#fff', padding: '0.45rem 0.75rem', borderRadius: 'var(--radius-md)', fontSize: '0.85rem' }}>
-              <option value="">All Sites</option>
-              <option value="Plant A">Plant A</option>
-              <option value="Plant B">Plant B</option>
-              <option value="Offshore Rig 7">Offshore Rig 7</option>
-            </select>
-
-            <select style={{ backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', color: '#fff', padding: '0.45rem 0.75rem', borderRadius: 'var(--radius-md)', fontSize: '0.85rem' }}>
-              <option value="">All Risk Tiers</option>
-              <option value="CRITICAL">Critical</option>
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
-            </select>
-          </div>
-        </div>
-      </Card>
+      {/* Multi-Dimensional Filter Bar */}
+      <ReportFilters
+        filters={filters}
+        onChange={handleFilterChange}
+        onReset={handleResetFilters}
+        totalFiltered={totalRecords}
+        totalRecords={MOCK_REPORTS_LIST.length}
+      />
 
       {/* Reports Table */}
-      <Card>
-        <div className="table-container">
-          <table className="hse-table">
-            <thead>
-              <tr>
-                <th>Report #</th>
-                <th>Observation Description</th>
-                <th>Site / Facility</th>
-                <th>Activity</th>
-                <th>Event Date</th>
-                <th>Risk / SIF Assessment</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mockReports.map((rep) => (
-                <tr key={rep.id}>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', fontWeight: 600, color: '#38bdf8' }}>
-                    {rep.reportNumber}
-                  </td>
-                  <td style={{ maxWidth: 320 }}>
-                    <p style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {rep.description}
-                    </p>
-                  </td>
-                  <td>{rep.site}</td>
-                  <td>{rep.activity}</td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                    {new Date(rep.eventDate).toLocaleDateString()}
-                  </td>
-                  <td>
-                    <RiskBadge level={rep.latestAnalysis?.riskLevel} sifPotential={rep.latestAnalysis?.sifPotential} />
-                  </td>
-                  <td>
-                    <StatusBadge status={rep.status} />
-                  </td>
-                  <td>
-                    <Link
-                      to={`/reports/${rep.id}`}
-                      className="btn btn-secondary"
-                      style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem' }}
-                    >
-                      View Report
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <ReportTable reports={paginatedReports} />
+
+      {/* Pagination Controls */}
+      <ReportPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalRecords={totalRecords}
+        pageSize={PAGE_SIZE}
+        onPageChange={(page) => setCurrentPage(page)}
+      />
     </PageContainer>
   );
 };
