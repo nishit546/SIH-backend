@@ -12,7 +12,7 @@
 [![Vite](https://img.shields.io/badge/Vite-8.2-646CFF.svg?style=flat-square&logo=vite)](https://vitejs.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](./LICENSE)
 
-[Features](#-key-features) • [Architecture](#-architecture) • [Getting Started](#-getting-started) • [API Reference](#-api-reference) • [Tech Stack](#-technology-stack) • [Contributing](#-contributing)
+[Features](#-key-features) • [Architecture](#-architecture) • [Getting Started](#-getting-started) • [API Reference](#-api-reference) • [Tech Stack](#-technology-stack)
 
 </div>
 
@@ -263,12 +263,6 @@ SIH-backend/
 ## 🔒 Security
 
 Please review our [Security Policy](./SECURITY.md) to report any security concerns or vulnerabilities.
-
----
-
-## 🤝 Contributing
-
-Contributions, feature suggestions, and bug fixes are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) to get started.
 
 ---
 
