@@ -1,63 +1,115 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Layers, Sparkles, Filter } from 'lucide-react';
 import { PageContainer } from '../components/common/PageContainer';
 import { PageHeader } from '../components/common/PageHeader';
-import { Card } from '../components/common/Card';
-import { RiskBadge } from '../components/common/RiskBadge';
-import { mockPatterns } from '../mock/mockData';
-import { Flame, MapPin, Tag } from 'lucide-react';
+import { PatternSummaryCards } from '../components/patterns/PatternSummaryCards';
+import { PatternCard } from '../components/patterns/PatternCard';
+import { PatternDetailModal } from '../components/patterns/PatternDetailModal';
+import { MOCK_PATTERN_SUMMARY, MOCK_SAFETY_PATTERNS } from '../mock/mockPatternsData';
+import type { SafetyPatternItem } from '../types/pattern.types';
 
 export const PatternsPage: React.FC = () => {
+  const [selectedPattern, setSelectedPattern] = useState<SafetyPatternItem | null>(null);
+  const [trendFilter, setTrendFilter] = useState<string>('ALL');
+
+  const filteredPatterns = MOCK_SAFETY_PATTERNS.filter((p) => {
+    if (trendFilter === 'ALL') return true;
+    return p.trend === trendFilter;
+  });
+
   return (
     <PageContainer>
+      {/* Page Header */}
       <PageHeader
-        title="Emerging Precursor Patterns & Hotspots"
-        description="Cross-report recurring hazard clusters and control breakdown concentrations detected across facilities."
+        title="Emerging Safety Patterns & Systemic Hotspots"
+        description="Cross-report AI cluster detection identifying recurring barrier breakdowns, repeated control gaps, and facility risk concentrations."
         badge={
-          <span className="badge-tag" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-            2 Active Clusters
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              fontSize: '11px',
+              fontWeight: 700,
+              color: 'var(--color-sif)',
+              backgroundColor: 'var(--color-sif-subtle)',
+              border: '1px solid rgba(168, 85, 247, 0.4)',
+              padding: '3px 10px',
+              borderRadius: 'var(--radius-full)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em'
+            }}
+          >
+            <Sparkles size={12} />
+            Cross-Report Intelligence
           </span>
         }
       />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        {mockPatterns.map((pat) => (
-          <Card key={pat.id}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <div style={{ padding: '0.4rem', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--color-critical-bg)', color: 'var(--color-critical)' }}>
-                  <Flame size={18} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>{pat.title}</h3>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Type: {pat.patternType}</span>
-                </div>
-              </div>
+      {/* Top 4 Summary Cards */}
+      <PatternSummaryCards summary={MOCK_PATTERN_SUMMARY} />
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span className="badge-tag" style={{ backgroundColor: 'var(--color-primary-subtle)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
-                  {pat.reportCount} Associated Reports
-                </span>
-                <RiskBadge level={pat.riskLevel} />
-              </div>
-            </div>
+      {/* Filter & Subheader Row */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          marginBottom: '18px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Layers size={18} color="var(--color-primary)" />
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-text-main)', margin: 0 }}>
+            Active Precursor Pattern Clusters ({filteredPatterns.length})
+          </h3>
+        </div>
 
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '1rem' }}>
-              {pat.description}
-            </p>
+        {/* Trend Filter Pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Filter size={14} color="var(--color-text-muted)" />
+          <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginRight: '4px' }}>
+            Trajectory:
+          </span>
 
-            <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-dim)', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <MapPin size={14} color="var(--text-muted)" /> {pat.site}
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <Tag size={14} color="var(--text-muted)" /> Rule: {pat.iogpRule}
-              </span>
-              <span>Activity: {pat.activity}</span>
-              <span>Last detected: {new Date(pat.lastDetectedAt).toLocaleDateString()}</span>
-            </div>
-          </Card>
+          {[
+            { id: 'ALL', label: 'All Patterns' },
+            { id: 'INCREASING', label: 'Increasing (Escalating)' },
+            { id: 'STABLE', label: 'Stable' },
+            { id: 'DECREASING', label: 'Decreasing' }
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setTrendFilter(item.id)}
+              style={{
+                backgroundColor: trendFilter === item.id ? 'var(--color-primary)' : 'var(--color-bg-surface)',
+                border: `1px solid ${trendFilter === item.id ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                color: trendFilter === item.id ? '#ffffff' : 'var(--color-text-muted)',
+                padding: '4px 10px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Patterns Grid */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {filteredPatterns.map((pattern) => (
+          <PatternCard key={pattern.id} pattern={pattern} onSelect={(pat) => setSelectedPattern(pat)} />
         ))}
       </div>
+
+      {/* Deep Inspection Modal */}
+      <PatternDetailModal pattern={selectedPattern} onClose={() => setSelectedPattern(null)} />
     </PageContainer>
   );
 };
