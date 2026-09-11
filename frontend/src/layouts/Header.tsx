@@ -54,7 +54,7 @@ export const Header: React.FC = () => {
           <button style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }} title="Notifications">
             <Bell size={18} />
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Link to="/settings" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', color: 'inherit' }}>
             <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.8rem', fontWeight: 700 }}>
               <User size={16} />
             </div>
@@ -62,7 +62,7 @@ export const Header: React.FC = () => {
               <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>HSE Reviewer</span>
               <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>OIL India Ltd.</span>
             </div>
-          </div>
+          </Link>
         </div>
       </div>
     </header>
