@@ -55,48 +55,7 @@ function errorHandler(err, req, res, next) {
     return;
   }
 
-  // 3. Mongoose Validation Errors
-  if (err.name === 'ValidationError') {
-    const messages = Object.values(err.errors || {}).map((val) => val.message);
-    res.status(400).json({
-      success: false,
-      message: messages.join(', ') || 'Validation error',
-      error: {
-        code: 'VALIDATION_ERROR',
-        details: messages,
-      },
-    });
-    return;
-  }
-
-  // 4. Mongoose CastError (e.g. invalid ObjectId)
-  if (err.name === 'CastError') {
-    res.status(400).json({
-      success: false,
-      message: `Invalid format for field "${err.path}": ${err.value}`,
-      error: {
-        code: 'INVALID_ID_FORMAT',
-        field: err.path,
-      },
-    });
-    return;
-  }
-
-  // 5. MongoDB Duplicate Key Error (code 11000)
-  if (err.code === 11000 || err.name === 'MongoServerError' && err.code === 11000) {
-    const field = err.keyValue ? Object.keys(err.keyValue).join(', ') : 'unique field';
-    res.status(409).json({
-      success: false,
-      message: `A record with this ${field} already exists in MongoDB`,
-      error: {
-        code: 'DUPLICATE_KEY_ERROR',
-        field,
-      },
-    });
-    return;
-  }
-
-  // 6. JSON Parsing Syntax Error
+  // 3. JSON Parsing Syntax Error
   if (err instanceof SyntaxError && 'body' in err) {
     res.status(400).json({
       success: false,

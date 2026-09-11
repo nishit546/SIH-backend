@@ -12,15 +12,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const { aiConfig } = require('./config/aiConfig');
-const { connectMongoDB, isMongoConnected } = require('./config/mongodb');
-
-// Connect to MongoDB asynchronously
-connectMongoDB();
 
 // Health Check Route
 app.get('/health', async (req, res) => {
   const isDbConnected = await checkDatabaseConnection();
-  const mongoStatus = isMongoConnected() ? 'connected' : 'disconnected';
 
   let aiHealth = {
     provider: aiConfig.provider,
@@ -45,7 +40,6 @@ app.get('/health', async (req, res) => {
     return res.status(503).json({
       status: 'degraded',
       database: 'disconnected',
-      mongodb: mongoStatus,
       aiService: aiHealth,
     });
   }
@@ -53,7 +47,6 @@ app.get('/health', async (req, res) => {
   return res.status(200).json({
     status: 'ok',
     database: 'connected',
-    mongodb: mongoStatus,
     aiService: aiHealth,
   });
 });
