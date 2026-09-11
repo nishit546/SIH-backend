@@ -132,8 +132,20 @@ export class RealDashboardService implements IDashboardService {
       })
     ]);
 
+    // Helper to safely extract payload regardless of single or double nesting
+    const unwrap = <T>(res: any, fallback: T): T => {
+      if (!res) return fallback;
+      if (res.data !== undefined) {
+        if (res.data && typeof res.data === 'object' && res.data.data !== undefined) {
+          return res.data.data;
+        }
+        return res.data;
+      }
+      return res ?? fallback;
+    };
+
     // 3. Map Backend Summary
-    const sum = summaryRes.data.data;
+    const sum = unwrap<BackendSummary>(summaryRes, {} as BackendSummary) || {};
     const total = sum.totalReports || 0;
     const sifCount = sum.sifPotentialReports || 0;
     const highRiskCount = sum.highRiskReports || 0;
@@ -159,7 +171,7 @@ export class RealDashboardService implements IDashboardService {
     };
 
     // 4. Map SIF Distribution
-    const sifData = sifRes.data.data;
+    const sifData = unwrap<BackendSifDistribution>(sifRes, {} as BackendSifDistribution) || {};
     const sifDistribution: SifDistribution = {
       sifPotential: sifData.sifPotential || 0,
       notSifPotential: sifData.notSifPotential || 0,
@@ -167,8 +179,10 @@ export class RealDashboardService implements IDashboardService {
     };
 
     // 5. Map Risk Level Distribution
-    const riskItems = riskRes.data.data || [];
-    const riskTotal = riskItems.reduce((acc, cur) => acc + (cur.count || 0), 0);
+    const riskItems = unwrap<BackendRiskItem[]>(riskRes, []) || [];
+    const riskTotal = Array.isArray(riskItems)
+      ? riskItems.reduce((acc, cur) => acc + (cur.count || 0), 0)
+      : 0;
     const riskColorMap: Record<string, string> = {
       LOW: 'var(--color-safe)',
       MEDIUM: 'var(--color-warning)',
@@ -182,7 +196,7 @@ export class RealDashboardService implements IDashboardService {
       'LOW'
     ];
     const riskDistribution: RiskDistributionItem[] = riskLevels.map((level) => {
-      const item = riskItems.find((r) => r.riskLevel === level);
+      const item = Array.isArray(riskItems) ? riskItems.find((r) => r.riskLevel === level) : undefined;
       const count = item ? item.count : 0;
       return {
         level,
@@ -193,74 +207,88 @@ export class RealDashboardService implements IDashboardService {
     });
 
     // 6. Map Hazards
-    const rawHazards = hazardsRes.data.data || [];
-    const totalHazardsCount = rawHazards.reduce((acc, cur) => acc + (cur.count || 0), 0);
-    const hazards: HazardStat[] = rawHazards.map((h) => ({
-      hazard: h.hazard,
-      count: h.count,
-      sifCount: 0,
-      percentage: totalHazardsCount > 0 ? Math.round((h.count / totalHazardsCount) * 100) : 0
-    }));
+    const rawHazards = unwrap<BackendHazardItem[]>(hazardsRes, []) || [];
+    const totalHazardsCount = Array.isArray(rawHazards)
+      ? rawHazards.reduce((acc, cur) => acc + (cur.count || 0), 0)
+      : 0;
+    const hazards: HazardStat[] = Array.isArray(rawHazards)
+      ? rawHazards.map((h) => ({
+          hazard: h.hazard,
+          count: h.count,
+          sifCount: 0,
+          percentage: totalHazardsCount > 0 ? Math.round((h.count / totalHazardsCount) * 100) : 0
+        }))
+      : [];
 
     // 7. Map IOGP Rules
-    const rawRules = iogpRes.data.data || [];
-    const totalRulesCount = rawRules.reduce((acc, cur) => acc + (cur.count || 0), 0);
-    const iogpRules: IogpRuleStat[] = rawRules.map((r, idx) => ({
-      rule: r.rule,
-      code: `LSR-0${(idx % 9) + 1}`,
-      count: r.count,
-      sifCount: 0,
-      percentage: totalRulesCount > 0 ? Math.round((r.count / totalRulesCount) * 100) : 0
-    }));
+    const rawRules = unwrap<BackendIogpRuleItem[]>(iogpRes, []) || [];
+    const totalRulesCount = Array.isArray(rawRules)
+      ? rawRules.reduce((acc, cur) => acc + (cur.count || 0), 0)
+      : 0;
+    const iogpRules: IogpRuleStat[] = Array.isArray(rawRules)
+      ? rawRules.map((r, idx) => ({
+          rule: r.rule,
+          code: `LSR-0${(idx % 9) + 1}`,
+          count: r.count,
+          sifCount: 0,
+          percentage: totalRulesCount > 0 ? Math.round((r.count / totalRulesCount) * 100) : 0
+        }))
+      : [];
 
     // 8. Map Site Distribution
-    const rawSites = sitesRes.data.data || [];
-    const siteDistribution: SiteDistributionItem[] = rawSites.map((s) => ({
-      site: s.site,
-      totalReports: s.totalReports,
-      sifReports: s.sifPotentialReports,
-      highRiskReports: 0,
-      percentage: total > 0 ? Math.round((s.totalReports / total) * 100) : 0
-    }));
+    const rawSites = unwrap<BackendSiteItem[]>(sitesRes, []) || [];
+    const siteDistribution: SiteDistributionItem[] = Array.isArray(rawSites)
+      ? rawSites.map((s) => ({
+          site: s.site,
+          totalReports: s.totalReports,
+          sifReports: s.sifPotentialReports,
+          highRiskReports: 0,
+          percentage: total > 0 ? Math.round((s.totalReports / total) * 100) : 0
+        }))
+      : [];
 
     // 9. Map Trends
-    const rawTrends = trendsRes.data.data || [];
-    const trends: SafetyTrendPoint[] = rawTrends.map((t) => ({
-      period: t.period,
-      date: t.period,
-      totalReports: t.totalReports,
-      sifPotentialReports: t.sifPotentialReports,
-      highRiskReports: 0
-    }));
+    const rawTrends = unwrap<BackendTrendItem[]>(trendsRes, []) || [];
+    const trends: SafetyTrendPoint[] = Array.isArray(rawTrends)
+      ? rawTrends.map((t) => ({
+          period: t.period,
+          date: t.period,
+          totalReports: t.totalReports,
+          sifPotentialReports: t.sifPotentialReports,
+          highRiskReports: 0
+        }))
+      : [];
 
     // 10. Map Recent Reports & High Priority Reports
-    const rawReports = recentReportsRes.data.data || [];
-    const recentReports: RecentReport[] = rawReports.map((r: any) => ({
-      id: r.id,
-      reportNumber: r.reportNumber,
-      eventDate: r.eventDate
-        ? new Date(r.eventDate).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          })
-        : new Date(r.createdAt).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          }),
-      site: r.site,
-      activity: r.activity,
-      reportType: r.reportType,
-      riskLevel: r.latestAnalysis?.riskLevel,
-      sifPotential: r.latestAnalysis?.sifPotential,
-      status: r.status,
-      headline: r.description
-        ? r.description.length > 75
-          ? r.description.slice(0, 75) + '...'
-          : r.description
-        : undefined
-    }));
+    const rawReports = unwrap<any[]>(recentReportsRes, []) || [];
+    const recentReports: RecentReport[] = Array.isArray(rawReports)
+      ? rawReports.map((r: any) => ({
+          id: r.id,
+          reportNumber: r.reportNumber,
+          eventDate: r.eventDate
+            ? new Date(r.eventDate).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+              })
+            : new Date(r.createdAt).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+              }),
+          site: r.site,
+          activity: r.activity,
+          reportType: r.reportType,
+          riskLevel: r.latestAnalysis?.riskLevel,
+          sifPotential: r.latestAnalysis?.sifPotential,
+          status: r.status,
+          headline: r.description
+            ? r.description.length > 75
+              ? r.description.slice(0, 75) + '...'
+              : r.description
+            : undefined
+        }))
+      : [];
 
     const highPriorityReports: RecentReport[] = recentReports.filter(
       (r) => r.sifPotential === true || r.riskLevel === 'HIGH' || r.riskLevel === 'CRITICAL'
