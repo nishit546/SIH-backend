@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plug, Search, ShieldCheck, Activity, AlertTriangle, Layers } from 'lucide-react';
+import { Plug, Search, Activity } from 'lucide-react';
 import './LandingPage.css';
-import heroVideo from '../../../../PLKU49YW8UVObdQXIgzEYj95Og.mp4';
-import imgHazard from 'C:/Users/ADMIN/.gemini/antigravity-ide/brain/70dbd87f-2f42-436c-86e0-1b10e6f80ea7/hazard_detection_1789106599016.jpg';
-import imgControls from 'C:/Users/ADMIN/.gemini/antigravity-ide/brain/70dbd87f-2f42-436c-86e0-1b10e6f80ea7/control_failures_1789106633577.jpg';
-import imgMapping from 'C:/Users/ADMIN/.gemini/antigravity-ide/brain/70dbd87f-2f42-436c-86e0-1b10e6f80ea7/iogp_mapping_1789106647686.jpg';
+import heroVideo from '../assets/PLKU49YW8UVObdQXIgzEYj95Og.mp4';
+import imgHazard from '../assets/hazard_detection.jpg';
+import imgControls from '../assets/control_failures.jpg';
+import imgMapping from '../assets/iogp_mapping.jpg';
 
 // Custom hook for scroll progress (0 to 1)
 const useScrollProgress = () => {
@@ -105,7 +105,7 @@ export const LandingPage: React.FC = () => {
             <a href="#about">About</a>
           </nav>
           <button className="btn-primary" onClick={() => navigate('/dashboard')}>
-            Book a Call Book a Call
+            Book a Call
           </button>
         </div>
       </header>
@@ -118,7 +118,7 @@ export const LandingPage: React.FC = () => {
               <h1>Your Safety Intelligence,<br/>Deployed in 24 Hours.</h1>
               <p className="hero-subtitle">Stop letting critical SIF precursors get buried in incident reports. SIF-Guard extracts the risk before it becomes an accident.</p>
               <div className="hero-ctas">
-                <button className="btn-primary" onClick={() => navigate('/dashboard')}>Book a Call Book a Call</button>
+                <button className="btn-primary" onClick={() => navigate('/dashboard')}>Book a Call</button>
                 <button className="btn-secondary" onClick={() => navigate('/dashboard')}>View Demo</button>
               </div>
             </FadeInSection>
@@ -315,7 +315,7 @@ export const LandingPage: React.FC = () => {
         <div className="content-container final-cta-inner">
           <FadeInSection>
             <h2>Stop guessing. Start predicting.</h2>
-            <button className="btn-primary" onClick={() => navigate('/dashboard')}>Book a Call Book a Call</button>
+            <button className="btn-primary" onClick={() => navigate('/dashboard')}>Book a Call</button>
             <p className="reassurance">Free pilot deployment · No credit card required</p>
           </FadeInSection>
         </div>
