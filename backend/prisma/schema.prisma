@@ -79,9 +79,27 @@ model User {
   safetyReports   SafetyReport[]
   assignedActions CorrectiveAction[] @relation("AssignedActions")
   createdActions  CorrectiveAction[] @relation("CreatedActions")
+  refreshTokens   RefreshToken[]
 
   @@map("users")
 }
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
 
 model SafetyReport {
   id             String           @id @default(uuid())
