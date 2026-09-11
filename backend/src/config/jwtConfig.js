@@ -7,7 +7,7 @@ const jwtConfig = {
   secret:
     process.env.JWT_ACCESS_SECRET ||
     process.env.JWT_SECRET ||
-    'sih_ps165_default_jwt_secret_change_in_production',
+    'sif_guard_default_jwt_access_secret_key',
   expiresIn:
     process.env.JWT_ACCESS_EXPIRES_IN ||
     process.env.JWT_EXPIRES_IN ||
@@ -17,7 +17,7 @@ const jwtConfig = {
   refreshSecret:
     process.env.JWT_REFRESH_SECRET ||
     process.env.REFRESH_TOKEN_SECRET ||
-    'sih_ps165_default_refresh_secret_key_change_in_production',
+    'sif_guard_default_jwt_refresh_secret_key',
   refreshExpiresIn:
     process.env.JWT_REFRESH_EXPIRES_IN ||
     process.env.REFRESH_TOKEN_EXPIRES_IN ||

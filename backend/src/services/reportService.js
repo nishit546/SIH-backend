@@ -1,6 +1,6 @@
 const prisma = require('../config/database');
-const { NotFoundError } = require('../utils/errors');
-const { ProcessingStatus } = require('@prisma/client');
+const { NotFoundError, AppError } = require('../utils/errors');
+const { ProcessingStatus, RiskLevel, ReportType } = require('@prisma/client');
 
 class ReportService {
   /**
@@ -32,21 +32,95 @@ class ReportService {
   }
 
   /**
-   * Retrieve paginated safety reports list
+   * Retrieve paginated and filtered safety reports list
    */
-  async getReports(page = 1, limit = 20) {
-    const safePage = Math.max(1, page);
-    const safeLimit = Math.min(100, Math.max(1, limit));
+  async getReports(params = {}) {
+    const page = typeof params.page === 'number' ? params.page : parseInt(params.page || '1', 10);
+    const limit = typeof params.limit === 'number' ? params.limit : parseInt(params.limit || '20', 10);
+
+    const safePage = Math.max(1, isNaN(page) ? 1 : page);
+    const safeLimit = Math.min(100, Math.max(1, isNaN(limit) ? 20 : limit));
     const skip = (safePage - 1) * safeLimit;
 
+    // Build dynamic Prisma where filter
+    const where = {};
+
+    // 1. Full-text search across description, site, activity, and reportNumber
+    if (params.search && params.search.trim()) {
+      const term = params.search.trim();
+      where.OR = [
+        { description: { contains: term } },
+        { site: { contains: term } },
+        { activity: { contains: term } },
+        { reportNumber: { contains: term } },
+      ];
+    }
+
+    // 2. Structured facet filters
+    if (params.site && params.site !== 'ALL') {
+      where.site = { contains: params.site.trim() };
+    }
+
+    if (params.department && params.department !== 'ALL') {
+      where.department = { contains: params.department.trim() };
+    }
+
+    if (params.activity && params.activity !== 'ALL') {
+      where.activity = { contains: params.activity.trim() };
+    }
+
+    if (params.reportType && params.reportType !== 'ALL' && params.reportType in ReportType) {
+      where.reportType = params.reportType;
+    }
+
+    if (params.status && params.status !== 'ALL' && params.status in ProcessingStatus) {
+      where.status = params.status;
+    }
+
+    // 3. Date range filters
+    const fromDate = params.from || params.fromDate;
+    const toDate = params.to || params.toDate;
+    if (fromDate || toDate) {
+      where.eventDate = {};
+      if (fromDate) where.eventDate.gte = new Date(fromDate);
+      if (toDate) where.eventDate.lte = new Date(toDate);
+    }
+
+    // 4. AI-derived filters (via latest SafetyAnalysis)
+    const analysisFilter = {};
+    if (params.riskLevel && params.riskLevel !== 'ALL' && params.riskLevel in RiskLevel) {
+      analysisFilter.riskLevel = params.riskLevel;
+    }
+
+    if (params.sifPotential && params.sifPotential !== 'ALL') {
+      if (params.sifPotential === 'SIF_ONLY' || params.sifPotential === 'true') {
+        analysisFilter.sifPotential = true;
+      } else if (params.sifPotential === 'NON_SIF' || params.sifPotential === 'false') {
+        analysisFilter.sifPotential = false;
+      }
+    }
+
+    if (Object.keys(analysisFilter).length > 0) {
+      where.analyses = {
+        some: {
+          isLatest: true,
+          ...analysisFilter,
+        },
+      };
+    }
+
+    // Sorting
+    const sortBy = params.sortBy || 'createdAt';
+    const sortOrder = params.sortOrder === 'asc' ? 'asc' : 'desc';
+    const orderBy = { [sortBy]: sortOrder };
+
     const [total, reports] = await Promise.all([
-      prisma.safetyReport.count(),
+      prisma.safetyReport.count({ where }),
       prisma.safetyReport.findMany({
+        where,
         skip,
         take: safeLimit,
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy,
         include: {
           analyses: {
             where: { isLatest: true },
@@ -138,6 +212,52 @@ class ReportService {
     }
 
     return report;
+  }
+
+  /**
+   * Update an existing safety report by ID
+   * Enforces role and ownership checks:
+   * - ADMIN / HSE_ANALYST: Can update any report
+   * - REPORTER / REVIEWER: Can only update their own report
+   */
+  async updateReport(id, data, user = null) {
+    const existing = await prisma.safetyReport.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      throw new NotFoundError(`Safety report with ID "${id}" was not found`);
+    }
+
+    // Ownership check for reporter role
+    if (user) {
+      const isReporter = user.role === 'REVIEWER' || user.role === 'REPORTER';
+      const isAdminOrAnalyst = user.role === 'ADMIN' || user.role === 'ANALYST' || user.role === 'HSE_ANALYST' || user.role === 'MANAGER';
+
+      if (isReporter && !isAdminOrAnalyst) {
+        if (existing.reporterId && existing.reporterId !== user.userId) {
+          throw new AppError('You do not have permission to modify another user\'s safety report', 403, 'FORBIDDEN');
+        }
+      }
+    }
+
+    const updateData = {};
+    if (data.description !== undefined) updateData.description = data.description.trim();
+    if (data.reportType !== undefined) updateData.reportType = data.reportType;
+    if (data.site !== undefined) updateData.site = data.site.trim();
+    if (data.department !== undefined) updateData.department = data.department ? data.department.trim() : null;
+    if (data.activity !== undefined) updateData.activity = data.activity.trim();
+    if (data.contractorType !== undefined) updateData.contractorType = data.contractorType ? data.contractorType.trim() : null;
+    if (data.workPhase !== undefined) updateData.workPhase = data.workPhase ? data.workPhase.trim() : null;
+    if (data.eventDate !== undefined) updateData.eventDate = data.eventDate ? new Date(data.eventDate) : new Date();
+    if (data.sourceMetadata !== undefined) updateData.sourceMetadata = data.sourceMetadata;
+
+    const updated = await prisma.safetyReport.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return updated;
   }
 
   /**

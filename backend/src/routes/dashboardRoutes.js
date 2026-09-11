@@ -2,12 +2,20 @@ const { Router } = require('express');
 const { dashboardController } = require('../controllers/dashboardController');
 const { validateRequest } = require('../middleware/validate');
 const {
+  authenticateJWT,
+  requireAnalystOrAdmin,
+} = require('../middleware/authenticate');
+const {
   dashboardFilterSchema,
   limitFilterSchema,
   trendFilterSchema,
 } = require('../validators/dashboardSchemas');
 
 const router = Router();
+
+// Protect all dashboard routes with JWT and require HSE_ANALYST or ADMIN role
+router.use(authenticateJWT);
+router.use(requireAnalystOrAdmin);
 
 // 1. GET /api/dashboard/summary
 router.get(

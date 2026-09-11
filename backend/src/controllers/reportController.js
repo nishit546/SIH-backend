@@ -24,14 +24,11 @@ class ReportController {
 
   /**
    * GET /api/reports
-   * Retrieve a paginated list of safety reports
+   * Retrieve a paginated and filtered list of safety reports
    */
   async getReports(req, res, next) {
     try {
-      const page = req.query.page ? parseInt(req.query.page, 10) : 1;
-      const limit = req.query.limit ? parseInt(req.query.limit, 10) : 20;
-
-      const result = await reportService.getReports(page, limit);
+      const result = await reportService.getReports(req.query);
 
       res.status(200).json({
         success: true,
@@ -55,6 +52,25 @@ class ReportController {
       res.status(200).json({
         success: true,
         data: report,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PUT/PATCH /api/reports/:id
+   * Update an existing safety report
+   */
+  async updateReport(req, res, next) {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const updated = await reportService.updateReport(id, req.body, req.user);
+
+      res.status(200).json({
+        success: true,
+        message: 'Safety report updated successfully',
+        data: updated,
       });
     } catch (error) {
       next(error);

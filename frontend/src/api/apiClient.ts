@@ -2,8 +2,10 @@
  * Centralized API Client for HSE Safety Intelligence Platform.
  *
  * Provides standardized HTTP request handling, response parsing,
+ * JWT authentication header injection, transparent token refresh on 401,
  * network error normalization, and user-friendly error messages.
  */
+import { authService } from '../services/authService';
 
 export class ApiError extends Error {
   public status: number;
@@ -28,6 +30,7 @@ const API_BASE_URL = (
 interface RequestOptions extends RequestInit {
   timeoutMs?: number;
   params?: Record<string, string | number | boolean | undefined | null>;
+  _retry?: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -56,6 +59,10 @@ function normalizeErrorMessage(status: number, data: any, defaultMsg: string): s
   switch (status) {
     case 400:
       return 'The submitted safety report data was invalid. Please review required fields and try again.';
+    case 401:
+      return 'Authentication required. Please log in to access this HSE resource.';
+    case 403:
+      return 'Access denied. Your user role does not have permission to view or perform this action.';
     case 404:
       return 'The requested safety report or record was not found in the database.';
     case 409:
@@ -76,7 +83,7 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
-  const { timeoutMs = 25000, params, ...fetchOptions } = options;
+  const { timeoutMs = 25000, params, _retry = false, ...fetchOptions } = options;
 
   // Build URL with query params
   let url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
@@ -97,9 +104,12 @@ export async function apiRequest<T>(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+  // Inject JWT Bearer Token if available
+  const token = authService.getStoredAccessToken();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(fetchOptions.headers || {})
   };
 
@@ -123,6 +133,14 @@ export async function apiRequest<T>(
         responseData = JSON.parse(text);
       } catch {
         responseData = { message: text };
+      }
+    }
+
+    // Handle 401 Unauthorized with automatic transparent refresh retry once
+    if (response.status === 401 && !_retry && !endpoint.includes('/auth/')) {
+      const newToken = await authService.refreshToken();
+      if (newToken) {
+        return apiRequest<T>(endpoint, { ...options, _retry: true });
       }
     }
 
