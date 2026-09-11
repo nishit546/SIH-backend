@@ -1,9 +1,6 @@
 const { Router } = require('express');
 const { dashboardController } = require('../controllers/dashboardController');
 const { validateRequest } = require('../middleware/validate');
-const { authenticateJWT } = require('../middleware/authenticate');
-const { requireRole } = require('../middleware/authorize');
-const { UserRole } = require('@prisma/client');
 const {
   dashboardFilterSchema,
   limitFilterSchema,
@@ -11,10 +8,6 @@ const {
 } = require('../validators/dashboardSchemas');
 
 const router = Router();
-
-// Protect all dashboard routes with JWT and appropriate roles (ANALYST, MANAGER, ADMIN)
-router.use(authenticateJWT);
-router.use(requireRole(UserRole.ANALYST, UserRole.MANAGER, UserRole.ADMIN));
 
 // 1. GET /api/dashboard/summary
 router.get(

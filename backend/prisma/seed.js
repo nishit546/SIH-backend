@@ -493,7 +493,7 @@ async function main() {
   ];
 
   // 4. Insert Reports & Analyses into Database
-  const createdReports: any[] = [];
+  const createdReports = [];
 
   for (const item of seedDataset) {
     const report = await prisma.safetyReport.create({
