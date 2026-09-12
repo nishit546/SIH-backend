@@ -104,6 +104,7 @@ Traditional safety reporting relies on lagging indicators (recordable injury rat
 
 ### Prerequisites
 - **Node.js**: `v20.x` or `v22.x` ([Download Node.js](https://nodejs.org/))
+- **Python**: `3.10+` with `pip` (for local AI engine inference)
 - **Database**: Local or cloud MySQL (or PostgreSQL) instance
 - **Package Manager**: `npm` (included with Node.js)
 
@@ -119,6 +120,14 @@ cd SIH-backend
 
 ### Step 2: Configure Environment Variables
 
+#### AI Engine Environment:
+Create `ai-service/.env` (or copy from `ai-service/.env.example`):
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-3.6-flash
+MODEL_PATH=./sif_final_model
+```
+
 #### Backend Environment:
 Create `backend/.env` (or copy from `backend/.env.example`):
 ```env
@@ -126,8 +135,8 @@ PORT=3000
 NODE_ENV=development
 DATABASE_URL="mysql://root:password@localhost:3306/sih_backend"
 
-# AI Service Configuration
-AI_PROVIDER=mock
+# AI Service Configuration (Points to ai-service)
+AI_PROVIDER=real                        # Set to 'real' to call ai-service, or 'mock'
 AI_SERVICE_URL=http://127.0.0.1:8000
 AI_REQUEST_TIMEOUT_MS=10000
 AI_MODEL_VERSION=sif-nlp-v2.1
@@ -145,13 +154,23 @@ VITE_USE_MOCK=false
 ### Step 3: Install Dependencies & Setup Database
 
 ```bash
-# 1. Setup Backend
+# 1. Setup AI Service (Python FastAPI + DistilBERT)
+cd ai-service
+python -m venv venv
+# On Windows:
+.\venv\Scripts\activate
+# On Linux/macOS:
+# source venv/bin/activate
+pip install -r requirements.txt
+cd ..
+
+# 2. Setup Backend
 cd backend
 npm install
 npm run prisma:generate
 npm run prisma:push    # Or npm run prisma:migrate to apply schema migrations
 
-# 2. Setup Frontend
+# 3. Setup Frontend
 cd ../frontend
 npm install
 ```
@@ -160,15 +179,22 @@ npm install
 
 ### Step 4: Run the Application
 
-Open two terminal windows:
+Open three terminal windows:
 
-#### Terminal 1 — Backend (Port `3000`):
+#### Terminal 1 — AI Service (FastAPI on Port `8000`):
+```bash
+cd ai-service
+.\venv\Scripts\activate
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+#### Terminal 2 — Backend (Express on Port `3000`):
 ```bash
 cd backend
 npm run dev
 ```
 
-#### Terminal 2 — Frontend (Port `5173`):
+#### Terminal 3 — Frontend (Vite on Port `5173`):
 ```bash
 cd frontend
 npm run dev
@@ -233,6 +259,20 @@ SIH-backend/
 │   │   └── server.ts                # Server bootstrap entry point
 │   ├── package.json
 │   └── tsconfig.json
+│
+├── ai-service/                      # Python FastAPI AI Engine
+│   ├── sif_final_model/             # Fine-tuned DistilBERT weights & tokenizer
+│   ├── dataset/                     # Training & benchmark datasets
+│   ├── ai_engine.py                 # DistilBERT inference & Gemini XAI logic
+│   ├── database.py                  # SQLite audit log storage
+│   ├── main.py                      # FastAPI REST endpoints (/api/analyze, /health)
+│   ├── retrain.py                   # Model fine-tuning & evaluation scripts
+│   ├── test_suite.py                # Automated AI validation test suite
+│   ├── final_demo.py                # Standalone evaluation & demo script
+│   ├── Dockerfile                   # AI Engine container specification
+│   ├── requirements.txt             # Python packages (PyTorch, transformers, etc.)
+│   ├── .env                         # Active configuration
+│   └── .env.example                 # Configuration template
 │
 └── frontend/                        # React 19 + Vite Frontend
     ├── src/

@@ -47,3 +47,14 @@ coverage/
 # Uploads
 uploads/
 backend/uploads/
+
+# Python / AI Engine
+ai-service/venv/
+ai-service/.venv/
+ai-service/__pycache__/
+ai-service/*.pyc
+ai-service/*.pyo
+ai-service/*.pyd
+ai-service/*.db
+ai-service/safety_audit.db
+
