@@ -10,6 +10,7 @@
     "test:auth": "node test-auth.js",
     "test:ai": "node test-ai-integration.js",
     "test:e2e": "node test-live-e2e.js",
+    "ai:start": "python ../ai-service/run_ai.py",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",

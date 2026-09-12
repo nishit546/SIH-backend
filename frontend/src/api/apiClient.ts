@@ -104,14 +104,19 @@ export async function apiRequest<T>(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+  const isFormData = typeof FormData !== 'undefined' && fetchOptions.body instanceof FormData;
+
   // Inject JWT Bearer Token if available
   const token = authService.getStoredAccessToken();
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+  const headers: Record<string, string> = {
     Accept: 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(fetchOptions.headers || {})
+    ...((fetchOptions.headers as Record<string, string>) || {}),
   };
+
+  if (!isFormData && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   try {
     const response = await fetch(url, {

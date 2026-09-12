@@ -141,6 +141,78 @@ class RealAIAnalysisService {
   }
 
   /**
+   * Invokes Python AI Service: POST /api/analyze-pdf
+   * Forwards raw PDF bytes and receives the analysis and extracted text.
+   */
+  async analyzePdf(fileBuffer, originalname = 'report.pdf') {
+    if (!fileBuffer || fileBuffer.length === 0) {
+      throw new AppError('PDF buffer cannot be empty', 400, 'EMPTY_PDF_BUFFER');
+    }
+
+    const endpoint = `${this.serviceUrl}/api/analyze-pdf`;
+    console.log(`[AI Service] Sending PDF analysis request to ${endpoint}`);
+
+    const formData = new FormData();
+    const blob = new Blob([fileBuffer], { type: 'application/pdf' });
+    formData.append('file', blob, originalname);
+
+    let response;
+    let rawJson;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+
+      response = await fetch(endpoint, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+    } catch (networkError) {
+      if (networkError.name === 'AbortError' || networkError.code === 'ABORT_ERR') {
+        throw new AppError('AI PDF analysis service timed out', 504, 'AI_SERVICE_TIMEOUT');
+      }
+      throw new AppError('AI PDF analysis service is currently unavailable', 503, 'AI_SERVICE_UNAVAILABLE');
+    }
+
+    if (!response.ok) {
+      let errorDetail = '';
+      try {
+        const errJson = await response.json();
+        errorDetail = errJson.detail || errJson.message || '';
+      } catch {
+        errorDetail = await response.text().catch(() => '');
+      }
+      throw new AppError(
+        errorDetail || `AI PDF analysis service returned HTTP ${response.status}`,
+        response.status >= 500 ? 502 : 400,
+        'AI_SERVICE_ERROR'
+      );
+    }
+
+    try {
+      rawJson = await response.json();
+    } catch (parseError) {
+      throw new AppError('AI PDF service returned invalid JSON', 502, 'INVALID_AI_OUTPUT');
+    }
+
+    const adaptedContract = aiResponseAdapter.adaptToContract(rawJson);
+    const normalizedResult = aiResponseAdapter.adaptToPrisma(adaptedContract, {
+      modelVersion: aiConfig.modelVersion,
+      ontologyVersion: 'v1.0.0',
+      rawResponse: rawJson,
+    });
+
+    return {
+      analysis: normalizedResult,
+      extractedText: rawJson.extracted_text || '',
+      filename: rawJson.filename || originalname,
+    };
+  }
+
+  /**
    * Optional batch analysis method for future bulk processing: POST /api/analyze/batch
    */
   async analyzeBatch(reports) {

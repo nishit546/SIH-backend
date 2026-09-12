@@ -119,7 +119,8 @@ async function runLiveE2ETest() {
   console.log('\n--- Step 2: Authenticate and Generate JWT ---');
   const jwt = require('jsonwebtoken');
   const { jwtConfig } = require('./src/config/jwtConfig');
-  const testUserId = 'usr-e2e-analyst-1';
+  const existingAnalyst = await prisma.user.findFirst({ where: { role: 'ANALYST' } });
+  const testUserId = existingAnalyst?.id || 'bbd210d1-cddb-4c5e-aa66-31de06678b0b';
   const token = jwt.sign(
     { userId: testUserId, role: 'ANALYST' },
     jwtConfig.secret,

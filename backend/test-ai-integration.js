@@ -23,6 +23,11 @@ async function runTests() {
     }
   }
 
+  // Ensure initial database connection check and fallback initialization completes
+  if (typeof prisma.checkDatabaseConnection === 'function') {
+    await prisma.checkDatabaseConnection();
+  }
+
   // In-memory repositories for Prisma simulation if DB credentials are not configured locally
   const reportsStore = new Map();
   const analysesStore = new Map();

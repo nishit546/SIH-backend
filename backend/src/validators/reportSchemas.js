@@ -198,7 +198,9 @@ const paginationQuerySchema = z.object({
 const reportIdParamSchema = z.object({
   id: z
     .string()
-    .regex(uuidRegex, 'Invalid report ID format. Must be a valid UUID'),
+    .trim()
+    .min(1, 'Report ID is required')
+    .max(128, 'Report ID is too long'),
 });
 
 module.exports = {

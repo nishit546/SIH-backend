@@ -3,7 +3,7 @@ import logging
 from typing import List, Union, Optional
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -14,6 +14,7 @@ load_dotenv()
 
 # Internal modular imports
 from database import init_db, get_db, AuditLog
+from multimodal_engine import process_audio_stt, process_image_ocr, translate_safety_text
 from ai_engine import (
     load_distilbert_model,
     get_ml_probability,
@@ -212,6 +213,90 @@ def get_audit_log(limit: int = 50, db: Session = Depends(get_db)):
     """
     records = db.query(AuditLog).order_by(AuditLog.id.desc()).limit(limit).all()
     return [rec.to_dict() for rec in records]
+
+# ---------------------------------------------------------------------------
+# Multimodal Endpoints (STT, OCR, Translation)
+# ---------------------------------------------------------------------------
+class TranslateRequest(BaseModel):
+    text: str = Field(..., min_length=1)
+    source_lang: str = Field("auto", description="Source language code: 'auto', 'en', 'hi', 'gu'")
+    target_lang: str = Field("en", description="Target language code: 'en'")
+
+@app.post("/api/multimodal/transcribe", summary="Audio Speech-to-Text & Multilingual Translation")
+@app.post("/api/transcribe", summary="Audio Speech-to-Text & Multilingual Translation (Alias)")
+async def transcribe_audio_endpoint(
+    audio: UploadFile = File(...),
+    language_hint: Optional[str] = Form(None)
+):
+    """
+    Transcribes audio using local Whisper base model.
+    Detects language (en, hi, gu), translates Hindi/Gujarati to English,
+    preserves safety negations, and returns structured canonical text with latency metrics.
+    """
+    try:
+        audio_bytes = await audio.read()
+        if not audio_bytes or len(audio_bytes) < 100:
+            raise HTTPException(status_code=400, detail="Audio file is empty or corrupted.")
+        
+        result = process_audio_stt(
+            audio_bytes=audio_bytes,
+            filename=audio.filename or "audio.wav",
+            language_hint=language_hint
+        )
+        return {"success": True, "data": result}
+    except Exception as e:
+        logger.error(f"Multimodal STT error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Speech recognition failed: {str(e)}")
+
+@app.post("/api/multimodal/ocr", summary="Scanned Report Image OCR Extraction")
+@app.post("/api/ocr", summary="Scanned Report Image OCR Extraction (Alias)")
+async def extract_ocr_endpoint(
+    image: UploadFile = File(...)
+):
+    """
+    Preprocesses uploaded document image with OpenCV (CLAHE contrast, deskewing, noise filter, binarization)
+    and extracts text with Tesseract OCR, preserving safety units and acronyms.
+    """
+    try:
+        image_bytes = await image.read()
+        if not image_bytes or len(image_bytes) < 100:
+            raise HTTPException(status_code=400, detail="Image file is empty or corrupted.")
+
+        result = process_image_ocr(
+            image_bytes=image_bytes,
+            filename=image.filename or "report.jpg"
+        )
+        return {"success": True, "data": result}
+    except Exception as e:
+        logger.error(f"Multimodal OCR error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Document OCR extraction failed: {str(e)}")
+
+@app.post("/api/multimodal/translate", summary="Translate Safety Observation Text")
+def translate_endpoint(payload: TranslateRequest):
+    """
+    Deterministic translation of safety text from Hindi/Gujarati to English
+    with strict safety-critical negation preservation.
+    """
+    try:
+        translated, latency_ms = translate_safety_text(
+            text=payload.text,
+            source_lang=payload.source_lang,
+            target_lang=payload.target_lang
+        )
+        return {
+            "success": True,
+            "data": {
+                "original_text": payload.text,
+                "translated_text": translated,
+                "source_language": payload.source_lang,
+                "target_language": payload.target_lang,
+                "latency_ms": round(latency_ms, 2)
+            }
+        }
+    except Exception as e:
+        logger.error(f"Translation error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn

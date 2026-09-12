@@ -64,9 +64,46 @@ async function main() {
     },
   });
 
-  // Also retain legacy demo user aliases with hashed passwords
+  // Create SIF-Guard demo reviewer from prompt specification
+  const sifGuardPasswordHash = await bcryptjs.hash('Reviewer@123', 10);
+  await prisma.user.create({
+    data: {
+      email: 'reviewer@sifguard.demo',
+      passwordHash: sifGuardPasswordHash,
+      fullName: 'HSE Safety Reviewer (Demo)',
+      role: UserRole.REVIEWER,
+      department: 'Corporate HSE Safety',
+      site: 'Field HQ Complex',
+    },
+  });
+
+  // Mobile App Fast-Access Demo Roles & Legacy Aliases
   await prisma.user.createMany({
     data: [
+      {
+        email: 'reviewer.demo@oilindia.in',
+        passwordHash,
+        fullName: 'HSE Field Reviewer',
+        role: UserRole.REVIEWER,
+        department: 'HSE Drilling Operations',
+        site: 'Duliajan Field HQ',
+      },
+      {
+        email: 'hse.manager@oilindia.in',
+        passwordHash,
+        fullName: 'Chief Safety Manager',
+        role: UserRole.MANAGER,
+        department: 'Executive HSE Council',
+        site: 'Duliajan Field HQ',
+      },
+      {
+        email: 'operator.demo@oilindia.in',
+        passwordHash,
+        fullName: 'Field Safety Officer',
+        role: UserRole.REVIEWER,
+        department: 'Drilling Rig Site Operations',
+        site: 'Duliajan Wellhead #4',
+      },
       {
         email: 'hse.reviewer@oil-demo.org',
         passwordHash,
@@ -94,7 +131,7 @@ async function main() {
     ],
   });
 
-  console.log('👤 Created Demo & Test Users (Reviewer, Analyst, Manager, Admin).');
+  console.log('👤 Created Demo & Test Users (Reviewer, Analyst, Manager, Admin, Mobile Roles).');
 
   // Helper metadata
   const syntheticMeta = {

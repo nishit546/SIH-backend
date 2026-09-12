@@ -200,6 +200,14 @@ class MockAIAnalysisService {
   async analyze(text) {
     return this.analyzeReport({ reportText: text });
   }
+
+  async analyzePdf(fileBuffer, originalname = 'report.pdf') {
+    return {
+      analysis: await this.analyzeReport({ reportText: 'Simulated observation extracted from ' + originalname }),
+      extractedText: 'Simulated incident report text extracted from PDF: ' + originalname,
+      filename: originalname,
+    };
+  }
 }
 
 const mockAiService = new MockAIAnalysisService();

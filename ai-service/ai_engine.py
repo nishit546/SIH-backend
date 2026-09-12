@@ -52,10 +52,17 @@ def load_distilbert_model():
             model.to(DEVICE)
             model.eval()
             logger.info("DistilBERT model loaded successfully.")
+            print("\n=======================================================")
+            print("MODEL LOADED SUCCESSFULLY")
+            print(f"MODEL PATH: {MODEL_DIR}")
+            print(f"MODEL TYPE: {type(model).__name__}")
+            print("TOKENIZER LOADED: YES")
+            print(f"COMPUTE DEVICE: {DEVICE}")
+            print("=======================================================\n")
             return True
         else:
-            logger.warning(f"Model path '{MODEL_DIR}' not found. Inference will fall back to baseline.")
-            return False
+            logger.error(f"CRITICAL: Model path '{MODEL_DIR}' not found. Cannot proceed with real AI inference.")
+            raise FileNotFoundError(f"Model path '{MODEL_DIR}' does not exist.")
     except Exception as e:
         logger.error(f"Error loading DistilBERT model: {e}")
         return False

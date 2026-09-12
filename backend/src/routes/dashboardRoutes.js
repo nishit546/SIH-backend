@@ -3,7 +3,7 @@ const { dashboardController } = require('../controllers/dashboardController');
 const { validateRequest } = require('../middleware/validate');
 const {
   authenticateJWT,
-  requireAnalystOrAdmin,
+  requireReporterOrAbove,
 } = require('../middleware/authenticate');
 const {
   dashboardFilterSchema,
@@ -13,9 +13,9 @@ const {
 
 const router = Router();
 
-// Protect all dashboard routes with JWT and require HSE_ANALYST or ADMIN role
+// Protect all dashboard routes with JWT and allow all authenticated safety personnel
 router.use(authenticateJWT);
-router.use(requireAnalystOrAdmin);
+router.use(requireReporterOrAbove);
 
 // 1. GET /api/dashboard/summary
 router.get(

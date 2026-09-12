@@ -13,8 +13,8 @@ app.use(express.urlencoded({ extended: true }));
 
 const { aiConfig } = require('./config/aiConfig');
 
-// Health Check Route
-app.get('/health', async (req, res) => {
+// Health Check Route Handler
+const healthCheckHandler = async (req, res) => {
   const isDbConnected = await checkDatabaseConnection();
 
   let aiHealth = {
@@ -49,7 +49,10 @@ app.get('/health', async (req, res) => {
     database: 'connected',
     aiService: aiHealth,
   });
-});
+};
+
+app.get('/health', healthCheckHandler);
+app.get('/api/health', healthCheckHandler);
 
 // Main API Routes
 app.use('/api', apiRoutes);

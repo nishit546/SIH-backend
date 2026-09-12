@@ -1,5 +1,6 @@
 const { reportService } = require('../services/reportService');
 const { analysisService } = require('../services/analysisService');
+const { multimodalService } = require('../services/multimodalService');
 
 class ReportController {
   /**
@@ -16,6 +17,38 @@ class ReportController {
       res.status(201).json({
         success: true,
         data: createdReport,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/reports/upload-pdf
+   * Upload an incident report PDF, extract text, trigger AI analysis, and persist
+   */
+  async uploadPdf(req, res, next) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'No PDF file was uploaded. Please upload a valid PDF document with form field name "pdf".',
+            code: 'MISSING_FILE',
+          },
+        });
+      }
+
+      const metadata = {
+        ...req.body,
+        reporterId: req.body.reporterId || req.user?.userId,
+      };
+
+      const result = await reportService.createReportFromPdf(req.file, metadata);
+
+      res.status(201).json({
+        success: true,
+        data: result,
       });
     } catch (error) {
       next(error);
@@ -129,6 +162,100 @@ class ReportController {
         success: true,
         message: 'Safety report deleted successfully',
         data: deleted,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/reports/transcribe
+   * Transcribe audio recording via Whisper base model & detect language / translate
+   */
+  async transcribeAudio(req, res, next) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'No audio file was uploaded. Please upload a valid audio recording with form field name "audio".',
+            code: 'MISSING_FILE',
+          },
+        });
+      }
+
+      const languageHint = req.body.languageHint || req.body.language_hint || null;
+      const result = await multimodalService.transcribeAudio(
+        req.file.buffer,
+        req.file.originalname,
+        languageHint
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/reports/ocr
+   * Extract text from paper safety report or photo via OpenCV + Tesseract OCR
+   */
+  async extractOcr(req, res, next) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'No document image was uploaded. Please upload an image with form field name "image".',
+            code: 'MISSING_FILE',
+          },
+        });
+      }
+
+      const result = await multimodalService.extractImageOcr(
+        req.file.buffer,
+        req.file.originalname
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/reports/translate
+   * Deterministically translate non-English safety text to English preserving negations
+   */
+  async translateText(req, res, next) {
+    try {
+      const { text, sourceLang, source_lang, targetLang, target_lang } = req.body || {};
+      if (!text || !text.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Text to translate cannot be empty',
+            code: 'EMPTY_TEXT',
+          },
+        });
+      }
+
+      const result = await multimodalService.translateText(
+        text,
+        sourceLang || source_lang || 'auto',
+        targetLang || target_lang || 'en'
+      );
+
+      res.status(200).json({
+        success: true,
+        data: result,
       });
     } catch (error) {
       next(error);

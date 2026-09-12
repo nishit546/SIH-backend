@@ -57,4 +57,11 @@ ai-service/*.pyo
 ai-service/*.pyd
 ai-service/*.db
 ai-service/safety_audit.db
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+
 

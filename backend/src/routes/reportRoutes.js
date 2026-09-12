@@ -5,6 +5,7 @@ const {
   authenticateJWT,
   requireAnalystOrAdmin,
   requireAdmin,
+  requireReporterOrAbove,
 } = require('../middleware/authenticate');
 const {
   createReportBodySchema,
@@ -13,10 +14,39 @@ const {
   reportIdParamSchema,
 } = require('../validators/reportSchemas');
 
+const { uploadPdf, uploadAudio, uploadImage } = require('../middleware/uploadMiddleware');
+
 const router = Router();
 
 // Protect all report routes with JWT authentication
 router.use(authenticateJWT);
+
+// POST /api/reports/transcribe - Transcribe audio speech to text & detect/translate
+router.post(
+  '/transcribe',
+  uploadAudio,
+  (req, res, next) => reportController.transcribeAudio(req, res, next)
+);
+
+// POST /api/reports/ocr - Extract text from document photo via OpenCV & Tesseract
+router.post(
+  '/ocr',
+  uploadImage,
+  (req, res, next) => reportController.extractOcr(req, res, next)
+);
+
+// POST /api/reports/translate - Safety-preserved translation to English
+router.post(
+  '/translate',
+  (req, res, next) => reportController.translateText(req, res, next)
+);
+
+// POST /api/reports/upload-pdf - Upload & analyze PDF report
+router.post(
+  '/upload-pdf',
+  uploadPdf,
+  (req, res, next) => reportController.uploadPdf(req, res, next)
+);
 
 // POST /api/reports - Create new report (All authenticated users: REPORTER, HSE_ANALYST, ADMIN)
 router.post(
@@ -53,10 +83,10 @@ router.patch(
   (req, res, next) => reportController.updateReport(req, res, next)
 );
 
-// POST /api/reports/:id/analyze - Trigger AI SIF analysis (HSE_ANALYST, ADMIN)
+// POST /api/reports/:id/analyze - Trigger AI SIF analysis (Reporter, Analyst, Manager, Admin)
 router.post(
   '/:id/analyze',
-  requireAnalystOrAdmin,
+  requireReporterOrAbove,
   validateRequest({ params: reportIdParamSchema }),
   (req, res, next) => reportController.analyzeReport(req, res, next)
 );

@@ -24,8 +24,15 @@ export interface AnalysisResponsePayload {
   message?: string;
 }
 
+export interface PdfReportSubmissionResult {
+  report: SafetyReport;
+  analysis: SafetyAnalysis;
+  extractedText: string;
+}
+
 export interface IReportService {
   submitReport(formData: SafetyReportForm): Promise<SafetyReportSubmissionResult>;
+  uploadPdfReport(file: File, metadata?: Partial<SafetyReportForm>): Promise<PdfReportSubmissionResult>;
   triggerAnalysis(reportId: string, force?: boolean): Promise<AnalysisResponsePayload>;
   getReportById(reportId: string): Promise<SafetyReport>;
   getReports(page?: number, limit?: number): Promise<PaginatedReportsResponse>;
@@ -39,6 +46,46 @@ export const isUuid = (id: string): boolean => UUID_REGEX.test(id);
  * Communicates strictly with the Node.js backend.
  */
 class RealReportService implements IReportService {
+  async uploadPdfReport(file: File, metadata?: Partial<SafetyReportForm>): Promise<PdfReportSubmissionResult> {
+    const formData = new FormData();
+    formData.append('pdf', file);
+    if (metadata?.site) formData.append('site', metadata.site);
+    if (metadata?.activity) formData.append('activity', metadata.activity);
+    if (metadata?.reportType) formData.append('reportType', metadata.reportType);
+    if (metadata?.department) formData.append('department', metadata.department);
+
+    const response = await apiClient.post<any>('/reports/upload-pdf', formData, {
+      timeoutMs: 45000,
+    });
+
+    const resData = response.data;
+    const reportData = resData.report;
+    const analysisData = resData.analysis;
+
+    const report: SafetyReport = {
+      id: reportData.id,
+      reportNumber: reportData.reportNumber || `PDF-${reportData.id.slice(0, 8)}`,
+      description: reportData.description,
+      reportType: reportData.reportType,
+      site: reportData.site,
+      department: reportData.department,
+      activity: reportData.activity,
+      contractorType: reportData.contractorType,
+      workPhase: reportData.workPhase,
+      eventDate: reportData.eventDate || reportData.createdAt,
+      status: reportData.status || 'ANALYZED',
+      createdAt: reportData.createdAt || new Date().toISOString(),
+      updatedAt: reportData.updatedAt || new Date().toISOString(),
+      latestAnalysis: analysisData,
+    };
+
+    return {
+      report,
+      analysis: analysisData,
+      extractedText: resData.extractedText || '',
+    };
+  }
+
   async submitReport(formData: SafetyReportForm): Promise<SafetyReportSubmissionResult> {
     const payload = {
       description: formData.description.trim(),
@@ -218,6 +265,56 @@ class RealReportService implements IReportService {
  * Mock Report Service implementation for fallback/testing without active backend.
  */
 class MockReportService implements IReportService {
+  async uploadPdfReport(file: File, metadata?: Partial<SafetyReportForm>): Promise<PdfReportSubmissionResult> {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const reportId = `rep-mock-${Date.now()}`;
+    const reportNumber = `PDF-2026-${randomSuffix}`;
+    const now = new Date().toISOString();
+
+    const analysis: SafetyAnalysis = {
+      id: `ana-${Date.now()}`,
+      reportId,
+      sifPotential: true,
+      probability: 0.88,
+      riskLevel: 'HIGH',
+      hazards: ['Hot Work / Welding', 'High Pressure Gas'],
+      exposures: ['Contractor Welder'],
+      criticalControls: ['PTW Verification', 'Atmospheric Monitoring'],
+      controlFailures: ['Gas clearance not verified'],
+      barrierStatus: 'FAILED',
+      potentialConsequences: ['Hydrocarbon Flash Fire'],
+      iogpRules: ['Hot Work'],
+      explanation: 'Simulated SIF Precursor analysis for uploaded document: ' + file.name,
+      modelVersion: 'v1.0.0-mock',
+      isLatest: true,
+      createdAt: now
+    };
+
+    const report: SafetyReport = {
+      id: reportId,
+      reportNumber,
+      description: 'Incident report extracted from document: ' + file.name,
+      reportType: metadata?.reportType || 'UNSAFE_CONDITION',
+      site: metadata?.site || 'Digboi Field Complex',
+      department: metadata?.department || 'Operations',
+      activity: metadata?.activity || 'Field Maintenance',
+      contractorType: null,
+      workPhase: 'Operations',
+      eventDate: now.split('T')[0],
+      status: 'ANALYZED',
+      createdAt: now,
+      updatedAt: now,
+      latestAnalysis: analysis,
+    };
+
+    return {
+      report,
+      analysis,
+      extractedText: 'Extracted text from ' + file.name
+    };
+  }
+
   async submitReport(formData: SafetyReportForm): Promise<SafetyReportSubmissionResult> {
     await new Promise((resolve) => setTimeout(resolve, 500));
 

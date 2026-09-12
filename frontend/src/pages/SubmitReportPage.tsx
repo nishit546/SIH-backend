@@ -10,7 +10,10 @@ import {
   Sparkles,
   ArrowRight,
   ShieldAlert,
-  Clock
+  Clock,
+  UploadCloud,
+  FileUp,
+  X
 } from 'lucide-react';
 import { PageContainer } from '../components/common/PageContainer';
 import { PageHeader } from '../components/common/PageHeader';
@@ -73,6 +76,49 @@ export const SubmitReportPage: React.FC = () => {
   const [submissionResult, setSubmissionResult] = useState<SafetyReportSubmissionResult | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState<boolean>(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  // PDF Ingestion States
+  const [submissionMode, setSubmissionMode] = useState<'text' | 'pdf'>('text');
+  const [selectedPdf, setSelectedPdf] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [pdfSubmitting, setPdfSubmitting] = useState<boolean>(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  const handlePdfFileSelect = (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setPdfError('Only PDF files (.pdf) are permitted.');
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setPdfError('File size exceeds the 15 MB limit.');
+      return;
+    }
+    setSelectedPdf(file);
+    setPdfError(null);
+  };
+
+  const handlePdfSubmit = async () => {
+    if (!selectedPdf) {
+      setPdfError('Please choose or drag a PDF document to upload.');
+      return;
+    }
+    setPdfSubmitting(true);
+    setPdfError(null);
+    try {
+      const result = await reportService.uploadPdfReport(selectedPdf, {
+        site: formData.site,
+        activity: formData.activity,
+        reportType: formData.reportType,
+        department: formData.department,
+      });
+      // Navigate directly to the real AI analysis result page
+      navigate(`/reports/${result.report.id}/analysis`);
+    } catch (err: any) {
+      setPdfError(err.message || 'Failed to process and analyze PDF report.');
+    } finally {
+      setPdfSubmitting(false);
+    }
+  };
 
   // Character counter helper
   const charCount = formData.description.length;
@@ -476,15 +522,337 @@ export const SubmitReportPage: React.FC = () => {
           </div>
         </div>
       ) : (
-        /* MAIN SUBMISSION FORM */
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) 300px',
-            gap: '24px',
-            alignItems: 'start'
-          }}
-        >
+        <div>
+          {/* Submission Mode Selector Tabs */}
+          <div
+            style={{
+              display: 'flex',
+              gap: '12px',
+              marginBottom: '20px',
+              borderBottom: '1px solid var(--color-border)',
+              paddingBottom: '12px',
+              flexWrap: 'wrap'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setSubmissionMode('text')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '13px',
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: submissionMode === 'text' ? 'var(--color-primary)' : 'var(--color-bg-surface)',
+                color: submissionMode === 'text' ? '#ffffff' : 'var(--color-text-muted)',
+                boxShadow: submissionMode === 'text' ? '0 2px 8px rgba(2, 132, 199, 0.25)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <FileText size={15} />
+              Manual Observation Entry
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSubmissionMode('pdf')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '13px',
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: submissionMode === 'pdf' ? 'var(--color-sif)' : 'var(--color-bg-surface)',
+                color: submissionMode === 'pdf' ? '#ffffff' : 'var(--color-text-muted)',
+                boxShadow: submissionMode === 'pdf' ? '0 2px 8px rgba(168, 85, 247, 0.3)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <UploadCloud size={15} />
+              Upload Incident PDF Document (Instant AI Reasoning)
+            </button>
+          </div>
+
+          {submissionMode === 'pdf' ? (
+            /* PDF DOCUMENT UPLOAD DROPZONE & REASONING PANEL */
+            <div
+              style={{
+                backgroundColor: 'var(--color-bg-surface)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '32px 24px',
+                maxWidth: '800px',
+                margin: '0 auto'
+              }}
+            >
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <div
+                  style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                    border: '1px solid rgba(168, 85, 247, 0.3)',
+                    color: 'var(--color-sif)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 12px'
+                  }}
+                >
+                  <FileUp size={28} />
+                </div>
+                <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--color-text-main)', marginBottom: '6px' }}>
+                  Upload Incident PDF Report
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', maxWidth: '540px', margin: '0 auto', lineHeight: 1.5 }}>
+                  Submit an official Oil India, OSHA, or industrial safety PDF document. PyMuPDF extracts the narrative and sends it directly through the fine-tuned DistilBERT + Hybrid Risk Ontology to evaluate SIF precursor signals.
+                </p>
+              </div>
+
+              {pdfError && (
+                <div
+                  style={{
+                    backgroundColor: 'var(--color-danger-subtle)',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    color: 'var(--color-danger)',
+                    padding: '12px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    marginBottom: '20px',
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}
+                >
+                  <AlertCircle size={18} />
+                  <span>{pdfError}</span>
+                </div>
+              )}
+
+              {/* Dropzone */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handlePdfFileSelect(e.dataTransfer.files[0]);
+                  }
+                }}
+                onClick={() => {
+                  const input = document.getElementById('pdf-file-input');
+                  if (input) input.click();
+                }}
+                style={{
+                  border: isDragging ? '2px dashed var(--color-sif)' : '2px dashed var(--color-border)',
+                  backgroundColor: isDragging ? 'rgba(168, 85, 247, 0.05)' : 'rgba(0,0,0,0.02)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '40px 24px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  marginBottom: '24px'
+                }}
+              >
+                <input
+                  id="pdf-file-input"
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handlePdfFileSelect(e.target.files[0]);
+                    }
+                  }}
+                />
+
+                {!selectedPdf ? (
+                  <>
+                    <UploadCloud size={44} color={isDragging ? 'var(--color-sif)' : 'var(--color-text-muted)'} style={{ margin: '0 auto 12px' }} />
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '4px' }}>
+                      Click to choose or drag & drop PDF report
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                      Supported format: Standard .PDF (up to 15MB)
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: 'var(--color-bg-surface)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '14px 18px',
+                      maxWidth: '520px',
+                      margin: '0 auto'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '6px',
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          color: '#ef4444',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 700,
+                          fontSize: '11px',
+                          flexShrink: 0
+                        }}
+                      >
+                        PDF
+                      </div>
+                      <div style={{ textAlign: 'left', overflow: 'hidden' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-main)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          {selectedPdf.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                          {(selectedPdf.size / 1024).toFixed(1)} KB • Ready for AI reasoning
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPdf(null)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--color-text-muted)',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Facility & Metadata row */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '16px',
+                  marginBottom: '24px'
+                }}
+              >
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '6px' }}>
+                    Facility / Site
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.site}
+                    onChange={(e) => handleChange('site', e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--color-border)',
+                      backgroundColor: 'var(--color-bg-base, transparent)',
+                      color: 'var(--color-text-main)',
+                      fontSize: '13px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '6px' }}>
+                    Report Classification
+                  </label>
+                  <select
+                    value={formData.reportType}
+                    onChange={(e) => handleChange('reportType', e.target.value as any)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--color-border)',
+                      backgroundColor: 'var(--color-bg-base, transparent)',
+                      color: 'var(--color-text-main)',
+                      fontSize: '13px',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value="UNSAFE_ACT">Unsafe Act</option>
+                    <option value="UNSAFE_CONDITION">Unsafe Condition</option>
+                    <option value="NEAR_MISS">Near Miss</option>
+                    <option value="INCIDENT">Incident</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  type="button"
+                  onClick={handlePdfSubmit}
+                  disabled={pdfSubmitting || !selectedPdf}
+                  style={{
+                    backgroundColor: 'var(--color-sif)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '12px 28px',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: pdfSubmitting || !selectedPdf ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    boxShadow: '0 0 16px rgba(168, 85, 247, 0.35)',
+                    opacity: !selectedPdf ? 0.6 : 1,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {pdfSubmitting ? (
+                    <>
+                      <Clock size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                      Streaming PDF to Node & Python Model...
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={16} />
+                      Upload PDF & Run Real AI Reasoning
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* MAIN SUBMISSION FORM */
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) 300px',
+                gap: '24px',
+                alignItems: 'start'
+              }}
+            >
           {/* Main Form Card */}
           <div
             style={{
@@ -1037,6 +1405,8 @@ export const SubmitReportPage: React.FC = () => {
           </div>
         </div>
       )}
-    </PageContainer>
+    </div>
+  )}
+</PageContainer>
   );
 };

@@ -32,7 +32,89 @@ class ReportService {
   }
 
   /**
-   * Retrieve paginated and filtered safety reports list
+   * Create and immediately analyze a safety report from an uploaded PDF document
+   */
+  async createReportFromPdf(file, metadata = {}) {
+    const { getAiService } = require('./ai');
+    const aiService = getAiService();
+
+    // 1. Invoke Python AI Service to extract text & perform SIF inference
+    const { analysis, extractedText, filename } = await aiService.analyzePdf(
+      file.buffer,
+      file.originalname
+    );
+
+    // 2. Generate Report Number & persist report
+    const timestamp = Date.now().toString().slice(-6);
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    const reportNumber = `PDF-${timestamp}-${randomSuffix}`;
+
+    const reportType = metadata.reportType || 'UNSAFE_CONDITION';
+    const site = metadata.site?.trim() || 'Field Operations (PDF Ingestion)';
+    const activity = metadata.activity?.trim() || 'Industrial Operations';
+    const department = metadata.department?.trim() || 'HSE & Field Operations';
+
+    const sourceMetadata = {
+      source: 'PDF_UPLOAD',
+      originalFilename: filename,
+      fileSize: file.size,
+      mimeType: file.mimetype,
+      ingestedAt: new Date().toISOString(),
+    };
+
+    // 3. Create SafetyReport in MySQL with ANALYZED status
+    const report = await prisma.safetyReport.create({
+      data: {
+        reportNumber,
+        description: extractedText || `Incident report imported from ${filename}`,
+        reportType,
+        site,
+        department,
+        activity,
+        contractorType: metadata.contractorType?.trim() || null,
+        workPhase: metadata.workPhase?.trim() || 'Operations & Maintenance',
+        eventDate: metadata.eventDate ? new Date(metadata.eventDate) : new Date(),
+        status: ProcessingStatus.ANALYZED,
+        reporterId: metadata.reporterId || null,
+        sourceMetadata,
+      },
+    });
+
+    // 4. Create SafetyAnalysis linked to the report
+    const savedAnalysis = await prisma.safetyAnalysis.create({
+      data: {
+        reportId: report.id,
+        sifPotential: analysis.sifPotential,
+        probability: analysis.probability,
+        riskLevel: analysis.riskLevel,
+        hazards: analysis.hazards,
+        exposures: analysis.exposures,
+        criticalControls: analysis.criticalControls,
+        controlFailures: analysis.controlFailures,
+        barrierStatus: analysis.barrierStatus,
+        potentialConsequences: analysis.potentialConsequences,
+        iogpRules: analysis.iogpRules,
+        explanation: analysis.explanation,
+        modelVersion: analysis.modelVersion,
+        ontologyVersion: analysis.ontologyVersion,
+        isLatest: true,
+        rawResponse: analysis.rawResponse,
+      },
+    });
+
+    return {
+      report: {
+        ...report,
+        latestAnalysis: savedAnalysis,
+        analyses: [savedAnalysis],
+      },
+      analysis: savedAnalysis,
+      extractedText,
+    };
+  }
+
+  /**
+   * Retrieve paginated safety reports list
    */
   async getReports(params = {}) {
     const page = typeof params.page === 'number' ? params.page : parseInt(params.page || '1', 10);
@@ -151,7 +233,7 @@ class ReportService {
       return {
         ...baseReport,
         latestAnalysis,
-        actionCount: _count.actions,
+        actionCount: _count?.actions ?? 0,
       };
     });
 
@@ -170,8 +252,10 @@ class ReportService {
    * Retrieve a single safety report by ID with full analysis and action history
    */
   async getReportById(id) {
-    const report = await prisma.safetyReport.findUnique({
-      where: { id },
+    const report = await prisma.safetyReport.findFirst({
+      where: {
+        OR: [{ id }, { reportNumber: id }],
+      },
       include: {
         analyses: {
           orderBy: { createdAt: 'desc' },
